@@ -30,6 +30,7 @@ import numpy as np
 from openenv.core.env_server import Environment
 
 from models import Action, Observation, Reward, State, Employee
+from graders import CEORubric
 
 # ── Logging setup ─────────────────────────────────────────────────────────────
 logger = logging.getLogger("ceo_env")
@@ -96,8 +97,11 @@ class CEOEnvironment(Environment[Action, Observation, State]):
         super().__init__()
         self.max_steps: int = 200             # Maximum quarters per episode
         self.state_obj: State = State()       # Full business state
-        self.pos_reward: float = 0.0          # Positive reward component this step
         self.neg_reward: float = 0.0          # Negative reward component this step
+        
+        # OpenEnv Rubric - provides formal grading
+        self.task_id = "grow_val_medium"
+        self.rubric = CEORubric(self.task_id)
         self.action_labels: List[str] = []    # Human-readable action descriptions
 
         # Previous-step values for delta-based reward shaping
@@ -152,6 +156,12 @@ class CEOEnvironment(Environment[Action, Observation, State]):
         obs.reward = 0.0
         obs.done = False
         obs.info = {}
+
+        # Reset the rubric state
+        self.task_id = kwargs.get("task_id", self.task_id)
+        self.rubric = CEORubric(self.task_id)
+        self._reset_rubric()
+
         return obs
 
     # ──────────────────────────────────────────────────────────────────────────
@@ -679,4 +689,11 @@ class CEOEnvironment(Environment[Action, Observation, State]):
         elif s.customer_satisfaction > 90:
             return "⭐ BELOVED BRAND: 'Can Do No Wrong', Says Satisfied Consumer Base."
 
-        return "📊 MARKET WATCH: Company Holds Steady in Routine Quarter."
+
+    def get_metadata(self):
+        from openenv.core.env_server.types import EnvironmentMetadata
+        return EnvironmentMetadata(
+            name="autonomous_ceo",
+            description="Continuous strategic business simulation.",
+            version="2.0.0"
+        )

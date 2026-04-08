@@ -10,7 +10,7 @@ load_dotenv()
 from openai import OpenAI
 from server.environment import CEOEnvironment
 from models import Action
-from graders import grade_medium
+from graders import GRADERS
 
 # ─── Configuration ────────────────────────────────────────────────────────────
 # Judges will provide these. Defaults point to our verified Groq configuration.
@@ -18,11 +18,23 @@ API_KEY = os.getenv("HF_TOKEN") or os.getenv("GROQ_API_KEY")
 API_BASE_URL = os.getenv("API_BASE_URL") or "https://api.groq.com/openai/v1"
 MODEL_NAME = os.getenv("MODEL_NAME") or "llama-3.3-70b-versatile"
 
-TASK_NAME = "ceo_survival_and_growth"
+# Task configuration (must match openenv.yaml)
+TASK_ID = os.getenv("TASK_ID") or "grow_val_medium"
 BENCHMARK = "autonomous_ceo"
-MAX_QUARTERS = 50
 TEMPERATURE = 0.0  # Ensure deterministic strategic decisions
-MAX_TOKENS = 512
+
+TASK_CONFIG = {
+    "survive_easy": {"max_quarters": 4, "grader": GRADERS["survive_easy"]},
+    "grow_val_medium": {"max_quarters": 50, "grader": GRADERS["grow_val_medium"]},
+    "undercut_hard": {"max_quarters": 50, "grader": GRADERS["undercut_hard"]},
+}
+
+if TASK_ID not in TASK_CONFIG:
+    print(f"Warning: Unknown TASK_ID={TASK_ID}. Defaulting to grow_val_medium.")
+    TASK_ID = "grow_val_medium"
+
+MAX_QUARTERS = TASK_CONFIG[TASK_ID]["max_quarters"]
+GRADER_FN = TASK_CONFIG[TASK_ID]["grader"]
 
 # ─── Logging Helpers ──────────────────────────────────────────────────────────
 def log_start(task: str, env: str, model: str) -> None:
@@ -101,7 +113,7 @@ def main():
     score = 0.0
     success = False
     
-    log_start(task=TASK_NAME, env=BENCHMARK, model=MODEL_NAME)
+    log_start(task=TASK_ID, env=BENCHMARK, model=MODEL_NAME)
     
     try:
         obs = env.reset(seed=42)
@@ -127,12 +139,12 @@ def main():
             if done:
                 break
         
-        # 5. Final scoring using the Medium Task Grader (Valuation + Morale)
+        # 5. Final scoring using the correct task grader
         history = env.typed_state().metrics_history
-        score = grade_medium(history, seed=42)
+        score = GRADER_FN(history, seed=42)
         score = min(max(score, 0.0), 1.0)  # Clamp to [0, 1]
         
-        # Assuming 0.5 is the success threshold for this task
+        # Assuming 0.5 is the success threshold for evaluation
         success = score >= 0.5
         
     except Exception as e:

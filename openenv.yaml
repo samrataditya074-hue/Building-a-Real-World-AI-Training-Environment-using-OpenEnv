@@ -193,7 +193,7 @@ reward:
 
 # ─── Tasks ───────────────────────────────────────────────────────────────────
 tasks:
-  - id: easy
+  - id: survive_easy
     difficulty: easy
     name: "Survive 4 Quarters"
     description: >
@@ -204,7 +204,7 @@ tasks:
     score_range: [0.0, 1.0]
     score_formula: "quarters_survived / 4"
 
-  - id: medium
+  - id: grow_val_medium
     difficulty: medium
     name: "Grow Valuation While Keeping Morale High"
     description: >
@@ -215,7 +215,7 @@ tasks:
     score_range: [0.0, 1.0]
     score_formula: "0.6 × valuation_growth_pct + 0.4 × (avg_morale / 100)"
 
-  - id: hard
+  - id: undercut_hard
     difficulty: hard
     name: "Win the Pricing War for 8 Profitable Quarters"
     description: >

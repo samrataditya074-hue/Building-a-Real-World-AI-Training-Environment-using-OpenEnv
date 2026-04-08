@@ -16,9 +16,9 @@ Usage:
     score = GRADERS["easy"](env.state().metrics_history, seed=42)
 """
 
-from __future__ import annotations
+from typing import List, Dict, Any, Optional
 
-from typing import List, Dict, Any
+from openenv.core.rubrics import Rubric
 
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -194,10 +194,36 @@ def grade_hard(
 
 
 # ──────────────────────────────────────────────────────────────────────────────
+# OpenEnv Rubric Implementation
+# ──────────────────────────────────────────────────────────────────────────────
+class CEORubric(Rubric):
+    """
+    Formal OpenEnv Rubric for the Autonomous CEO environment.
+    Wraps the episodic graders for real-time and terminal scoring.
+    """
+    def __init__(self, task_id: str = "grow_val_medium"):
+        super().__init__()
+        self.task_id = task_id
+        self.grader = GRADERS.get(task_id, grade_medium)
+
+    def forward(self, action: Any, observation: Any) -> float:
+        """
+        OpenEnv forward pass. 
+        In ACE, grading is episodic/history-based, so typically 
+        we return 0.0 during the episode and the final score at the end.
+        """
+        return 0.0
+
+    def score_history(self, history: List[Dict[str, Any]]) -> float:
+        """Calculate score based on historical metrics."""
+        return self.grader(history)
+
+
+# ──────────────────────────────────────────────────────────────────────────────
 # Registry
 # ──────────────────────────────────────────────────────────────────────────────
 GRADERS: Dict[str, Any] = {
-    "easy": grade_easy,
-    "medium": grade_medium,
-    "hard": grade_hard,
+    "survive_easy": grade_easy,
+    "grow_val_medium": grade_medium,
+    "undercut_hard": grade_hard,
 }
