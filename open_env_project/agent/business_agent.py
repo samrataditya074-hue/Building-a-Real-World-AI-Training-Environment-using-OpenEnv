@@ -22,7 +22,7 @@ class CorporateAgent:
         
         # Automatically load the trained RL agent if it exists
         if HAS_SB3 and os.path.exists("ceo_ppo_model.zip"):
-            print("🧠 Loading Trained RL Model: ceo_ppo_model.zip")
+            print("Loading Trained RL Model: ceo_ppo_model.zip")
             self.model = PPO.load("ceo_ppo_model.zip")
 
     def compute_action(self, obs: np.ndarray) -> np.ndarray:

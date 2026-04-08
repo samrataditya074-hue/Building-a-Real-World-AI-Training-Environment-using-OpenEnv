@@ -17,6 +17,15 @@ from models import Action, Observation, State
 from server.environment import CEOEnvironment
 from agent.business_agent import CorporateAgent
 
+# Add LLM Support
+try:
+    from openai import OpenAI
+    has_openai = bool(os.getenv("OPENAI_API_KEY"))
+    openai_client = OpenAI() if has_openai else None
+except ImportError:
+    has_openai = False
+    openai_client = None
+
 # Create the OpenEnv FastAPI Server instance
 env = CEOEnvironment()
 app = create_app(CEOEnvironment, Action, Observation, State)
@@ -177,6 +186,31 @@ def format_metrics(s: State):
         f"**Crises:** {html_crisis}"
     )
 
+# --- NEW: Utility function for safe RL output scaling ---
+def scale_positive(x: float) -> float:
+    """Safely map RL outputs from [-1.0, 1.0] to [0.0, 1.0] bounds."""
+    return float(np.clip((x + 1.0) / 2.0, 0.0, 1.0))
+
+# --- NEW: Utility function for LLM Narration (WOW Factor) ---
+def get_llm_thought(s: State, base_thought: str) -> str:
+    if not has_openai or not openai_client:
+        return base_thought
+    
+    prompt = f"You are the internal monologue of a highly intelligent AI CEO. \n" \
+             f"Current company metrics: Cash=${s.cash:,.0f}, Morale={s.employee_morale:.0f}%, Quarter={s.quarter}.\n" \
+             f"Default hardcoded logic: {base_thought}\n" \
+             f"Task: Rewrite this logic into one dramatic, impressive, and strategic sentence as if you were presenting to the board."
+    try:
+        res = openai_client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[{"role": "user", "content": prompt}],
+            max_tokens=60,
+            temperature=0.7
+        )
+        return "✨ [Live LLM Insight] " + res.choices[0].message.content.strip()
+    except Exception:
+        return base_thought
+
 def format_actions(actions):
     """Format action list as readable bullets."""
     if not actions:
@@ -203,9 +237,9 @@ def stream_simulation(mode, speed="normal", user_p=0, user_m=0, user_h=0, user_r
             action_np = agent.compute_action(obs.to_array())
             action = Action(
                 price_adjustment=float(action_np[0]),
-                marketing_push=float(action_np[1]),
+                marketing_push=scale_positive(action_np[1]), # mapped [-1, 1] -> [0, 1]
                 hire_fire=float(action_np[2]),
-                rd_investment=float(action_np[3]),
+                rd_investment=scale_positive(action_np[3]),  # mapped [-1, 1] -> [0, 1]
                 salary_adjustment=float(action_np[4]),
                 task_allocation=float(action_np[5]),
                 crisis_response=float(action_np[6]),
@@ -224,7 +258,7 @@ def stream_simulation(mode, speed="normal", user_p=0, user_m=0, user_h=0, user_r
             )
 
         step_res = env.step(action)
-        s = env.state()
+        s = env.typed_state()
         obs = step_res
 
         pos_hist.append(step_res.info["pos_reward"])
@@ -250,6 +284,11 @@ def stream_simulation(mode, speed="normal", user_p=0, user_m=0, user_h=0, user_r
         
         metrics = format_metrics(s)
         thought = step_res.info["thought"]
+        
+        # WOW FACTOR: In normal speed auto mode, generate live LLM insights for the thought cloud
+        if mode == "auto" and speed == "normal" and has_openai and (i % 3 == 0):
+            thought = get_llm_thought(s, thought)
+
         actions_text = format_actions(step_res.info["actions"])
         events_text = "\n".join(s.event_history[-8:]) if s.event_history else "No major events yet."
         roster_data = s.get_roster()
@@ -275,7 +314,7 @@ def stream_simulation(mode, speed="normal", user_p=0, user_m=0, user_h=0, user_r
             else:
                 reason = "🏁 MAX STEPS"
             
-            yield plot_3d, reward_fig, comp_fig, val_fig, f"### ☠️ GAME OVER: {reason}", thought, actions_text, events_text, roster_data, headline_html
+            yield plot_3d, reward_fig, comp_fig, val_fig, f"### ☠️ SIMULATION TERMINATED: {reason}", thought, actions_text, events_text, roster_data, headline_html
             break
 
         time.sleep(current_delay)
@@ -301,8 +340,10 @@ def run_clash(p, m, h, r, s, t, c, b):
         # AI compute action
         a_act_np = ai_agent.compute_action(a_obs.to_array())
         ai_action = Action(
-            price_adjustment=float(a_act_np[0]), marketing_push=float(a_act_np[1]),
-            hire_fire=float(a_act_np[2]), rd_investment=float(a_act_np[3]),
+            price_adjustment=float(a_act_np[0]), 
+            marketing_push=scale_positive(a_act_np[1]), # mapped [-1, 1] -> [0, 1]
+            hire_fire=float(a_act_np[2]), 
+            rd_investment=scale_positive(a_act_np[3]),  # mapped [-1, 1] -> [0, 1]
             salary_adjustment=float(a_act_np[4]), task_allocation=float(a_act_np[5]),
             crisis_response=float(a_act_np[6]), budget_shift=float(a_act_np[7])
         )
@@ -310,8 +351,8 @@ def run_clash(p, m, h, r, s, t, c, b):
         h_res = human_env.step(human_action)
         a_res = ai_env.step(ai_action)
         
-        h_vals.append(human_env.state().get_valuation())
-        a_vals.append(ai_env.state().get_valuation())
+        h_vals.append(human_env.typed_state().get_valuation())
+        a_vals.append(ai_env.typed_state().get_valuation())
         steps.append(i+1)
         
         a_obs = a_res
@@ -333,7 +374,7 @@ def run_clash(p, m, h, r, s, t, c, b):
 def reset_environment():
     """Manual reset of the environment"""
     env.reset()
-    s = env.state()
+    s = env.typed_state()
     # Return empty graphs and starting metrics
     plot_3d = create_3d_landscape(s.dept_scores())
     reward_fig = create_reward_plot([], [], [], [])
@@ -343,7 +384,7 @@ def reset_environment():
     roster_data = s.get_roster()
     return plot_3d, reward_fig, comp_fig, val_fig, metrics, "Simulation reset.", "Waiting for actions.", "Event log cleared.", roster_data, "<div style='height: 50px;'></div>"
 
-with gr.Blocks(title="Autonomous CEO AI Simulator", theme=gr.themes.Monochrome()) as demo:
+with gr.Blocks(title="Autonomous CEO AI Simulator") as demo:
     gr.Markdown("# 🏢 Autonomous CEO AI Simulator")
     gr.Markdown("Watch an AI make real CEO decisions — hiring, firing, pricing, R&D, crisis management — all in real-time. Full OpenEnv API runs alongside.")
 
@@ -356,7 +397,7 @@ with gr.Blocks(title="Autonomous CEO AI Simulator", theme=gr.themes.Monochrome()
                     plot_3d = gr.Plot(label="3D Corporate Ecosystem")
                 with gr.Column(scale=1):
                     gr.Markdown("### 💭 AI Thought Cloud")
-                    thought_box = gr.Textbox(label="CEO Reasoning", lines=3, interactive=False)
+                    thought_box = gr.Textbox(label="CEO Reasoning (Powered by LLM if OPENAI_API_KEY is set)", lines=3, interactive=False)
                     gr.Markdown("### ⚡ Actions Taken")
                     actions_box = gr.Textbox(label="Micro-Narrative Updates", lines=3, interactive=False)
                     gr.Markdown("### 📰 Event Log")
@@ -405,12 +446,15 @@ with gr.Blocks(title="Autonomous CEO AI Simulator", theme=gr.themes.Monochrome()
 
             m_plot3d = gr.Plot(label="3D Corporate Ecosystem")
             with gr.Row():
-                with gr.Column(scale=2):
-                    m_val = gr.Plot(label="Growth vs Downfall")
-                    m_reward = gr.Plot(label="Reward Analytics")
+                m_reward = gr.Plot(label="Reward Analytics")
+                m_comp = gr.Plot(label="Pricing War")
+                m_val = gr.Plot(label="Growth vs Downfall")
+            with gr.Row():
                 with gr.Column(scale=1):
                     m_thought = gr.Textbox(label="Thought Cloud", lines=2)
                     m_actions = gr.Textbox(label="Actions", lines=2)
+                with gr.Column(scale=1):
+                    m_events = gr.Textbox(label="Event Log", lines=2)
                     m_roster = gr.Dataframe(headers=["Employee ID", "Name", "Department", "Salary", "Perform", "Morale", "Tenure Qtrs"])
             
             m_metrics = gr.Markdown("### Adjust and click below")
@@ -477,7 +521,7 @@ with gr.Blocks(title="Autonomous CEO AI Simulator", theme=gr.themes.Monochrome()
 
     def get_mentor_advice():
         agent = CorporateAgent()
-        a_np = agent.compute_action(env.state().to_observation().to_array())
+        a_np = agent.compute_action(env.typed_state().to_observation().to_array())
         advice = f"AI MENTOR REASONING:\n1. Pricing: {'Increase' if a_np[0]>0 else 'Decrease'} ({abs(a_np[0]*100):.0f}%)\n"
         advice += f"2. Workforce: {'Expand' if a_np[2]>0 else 'Shrink'} ({abs(a_np[2]*5):.0f} people)\n"
         advice += f"3. Strategy: {'Aggressive Growth' if a_np[7]>0 else 'Conservative Safety'}\n"
@@ -485,7 +529,7 @@ with gr.Blocks(title="Autonomous CEO AI Simulator", theme=gr.themes.Monochrome()
         return advice
 
     def do_export():
-        csv_data = export_to_csv(env.state().metrics_history)
+        csv_data = export_to_csv(env.typed_state().metrics_history)
         if csv_data:
             with open("ceo_report.csv", "w") as f: f.write(csv_data)
             return "ceo_report.csv"
@@ -495,7 +539,8 @@ with gr.Blocks(title="Autonomous CEO AI Simulator", theme=gr.themes.Monochrome()
         return leaderboard_data
 
     outputs_auto = [plot_3d, reward_plot, comp_plot, val_plot, metrics_md, thought_box, actions_box, event_box, roster_table, ticker]
-    outputs_manual = [m_plot3d, m_reward, m_val, m_thought, m_actions, m_roster, m_metrics, ticker] # Added ticker
+    # Order must match stream_simulation yield: plot_3d, reward_fig, comp_fig, val_fig, metrics, thought, actions_text, events_text, roster_data, headline_html
+    outputs_manual = [m_plot3d, m_reward, m_comp, m_val, m_metrics, m_thought, m_actions, m_events, m_roster, ticker]
 
     reset_btn.click(fn=reset_environment, outputs=outputs_auto)
     m_reset_btn.click(fn=reset_environment, outputs=outputs_manual)
@@ -512,5 +557,8 @@ with gr.Blocks(title="Autonomous CEO AI Simulator", theme=gr.themes.Monochrome()
 # This allows both OpenEnv API endpoints (/step, /reset) and the Gradio UI (/ or /ui) to run together.
 app = gr.mount_gradio_app(app, demo, path="/")
 
-if __name__ == "__main__":
+def main():
     uvicorn.run(app, host="0.0.0.0", port=7860)
+
+if __name__ == "__main__":
+    main()
