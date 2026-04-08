@@ -1,0 +1,227 @@
+spec_version: 1
+name: autonomous_ceo_env
+description: >
+  An OpenEnv-compliant Reinforcement Learning environment simulating a full
+  corporate ecosystem. An AI agent acts as CEO, making 8 continuous strategic
+  decisions every quarter — pricing, hiring, R&D, marketing, salary, team
+  structure, crisis management, and budget allocation — to maximise company
+  valuation while keeping employees happy and avoiding bankruptcy.
+author: samrataditya074-hue
+version: 2.0.0
+runtime: docker
+entry_point: server/app.py
+port: 7860
+
+# ─── Action Space ────────────────────────────────────────────────────────────
+# 8 continuous levers, each in [-1.0, +1.0]
+action_space:
+  type: Box
+  shape: [8]
+  dtype: float32
+  low: -1.0
+  high: 1.0
+  fields:
+    - name: price_adjustment
+      index: 0
+      range: [-1.0, 1.0]
+      description: >
+        Adjusts product price relative to the competitor.
+        +1 = raise price by $8 (higher margin, fewer customers).
+        -1 = lower price by $8 (more customers, thinner margin).
+
+    - name: marketing_push
+      index: 1
+      range: [0.0, 1.0]
+      description: >
+        Quarterly marketing spend.
+        0 = $0 spent.  +1 = $600 spent → boosts demand and customer satisfaction.
+
+    - name: hire_fire
+      index: 2
+      range: [-1.0, 1.0]
+      description: >
+        Workforce change.
+        +1 = hire 5 people.  -1 = fire 5 lowest performers.
+        Firing damages remaining employee morale (-3% per person fired).
+
+    - name: rd_investment
+      index: 3
+      range: [0.0, 1.0]
+      description: >
+        R&D budget this quarter.
+        0 = $0.  +1 = $400 → increments R&D progress (0–100 scale).
+        R&D > 30 unlocks efficiency gains; R&D > 70 boosts brand reputation.
+
+    - name: salary_adjustment
+      index: 4
+      range: [-1.0, 1.0]
+      description: >
+        Salary change applied to employees.
+        +1 = +10% (merit-based bonus to top performers only).
+        -1 = -10% company-wide cut (saves cost but hurts morale).
+
+    - name: task_allocation
+      index: 5
+      range: [-1.0, 1.0]
+      description: >
+        Team structure decision.
+        +1 = cross-train all teams (flexible but slightly less efficient).
+        -1 = specialise teams (more efficient, individual performance +1.5).
+
+    - name: crisis_response
+      index: 6
+      range: [-1.0, 1.0]
+      description: >
+        Crisis handling strategy (only has effect when ≥1 crisis is active).
+        +1 = invest through crisis (-$500 cash, +5% morale, +3 reputation).
+        -1 = emergency cost-cut (+$300 cash, -5% morale).
+
+    - name: budget_shift
+      index: 7
+      range: [-1.0, 1.0]
+      description: >
+        Reallocates budget between Sales and Operations.
+        +1 = aggressive growth (more sales spend, less ops spend).
+        -1 = conservative savings (less sales spend, more ops spend).
+
+# ─── Observation Space ───────────────────────────────────────────────────────
+# 14 normalised floats returned to the agent every step
+observation_space:
+  type: Box
+  shape: [14]
+  dtype: float32
+  low: 0.0
+  high: 2.0
+  fields:
+    - name: cash_norm
+      index: 0
+      range: [0.0, ~2.0]
+      norm_constant: 200000
+      description: "Current cash reserves divided by $200,000."
+
+    - name: revenue_norm
+      index: 1
+      range: [0.0, ~2.0]
+      norm_constant: 5000
+      description: "Quarterly revenue divided by $5,000."
+
+    - name: customer_satisfaction_norm
+      index: 2
+      range: [0.0, 1.0]
+      norm_constant: 100
+      description: "Customer satisfaction (0–100) divided by 100."
+
+    - name: employee_morale_norm
+      index: 3
+      range: [0.0, 1.0]
+      norm_constant: 100
+      description: "Average employee morale (0–100) divided by 100."
+
+    - name: inventory_norm
+      index: 4
+      range: [0.0, ~2.0]
+      norm_constant: 1000
+      description: "Units in stock divided by 1,000."
+
+    - name: market_trend
+      index: 5
+      range: [0.4, 1.6]
+      norm_constant: 1
+      description: "Economic health multiplier. 1.0 = neutral, >1 = boom, <1 = recession."
+
+    - name: total_employees_norm
+      index: 6
+      range: [0.0, 1.0]
+      norm_constant: 50
+      description: "Number of employees divided by 50 (max expected)."
+
+    - name: brand_reputation_norm
+      index: 7
+      range: [0.0, 1.0]
+      norm_constant: 100
+      description: "Brand reputation score (0–100) divided by 100."
+
+    - name: operational_efficiency_norm
+      index: 8
+      range: [0.0, 1.0]
+      norm_constant: 100
+      description: "How efficiently the company operates (0–100) divided by 100."
+
+    - name: rd_progress_norm
+      index: 9
+      range: [0.0, 1.0]
+      norm_constant: 100
+      description: "R&D advancement level (0–100) divided by 100."
+
+    - name: debt_norm
+      index: 10
+      range: [0.0, ~2.0]
+      norm_constant: 10000
+      description: "Total company debt divided by $10,000."
+
+    - name: cash_crisis_flag
+      index: 11
+      range: [0.0, 1.0]
+      description: "1.0 if cash < $2,000 (critical); 0.0 otherwise."
+
+    - name: morale_crisis_flag
+      index: 12
+      range: [0.0, 1.0]
+      description: "1.0 if average morale < 35% (employee exodus risk); 0.0 otherwise."
+
+    - name: competitor_price_norm
+      index: 13
+      range: [0.0, 1.5]
+      norm_constant: 100
+      description: "Competitor's current product price divided by $100."
+
+# ─── Reward ──────────────────────────────────────────────────────────────────
+reward:
+  type: continuous
+  range: [-200.0, 300.0]
+  description: >
+    Per-step reward combining profitability, team health, brand strength,
+    R&D payoff, and penalties for destructive actions.
+  normalization_constants:
+    PROFIT_NORM: 80
+    MORALE_NORM: 10
+    SATISFACTION_NORM: 40
+    REPUTATION_NORM: 80
+    RD_SCALE: 0.2
+    FIRE_PENALTY: -0.3
+    TERMINAL_PENALTY: -50.0
+
+# ─── Tasks ───────────────────────────────────────────────────────────────────
+tasks:
+  - id: easy
+    difficulty: easy
+    name: "Survive 4 Quarters"
+    description: >
+      Run the company for at least 4 quarters without going bankrupt,
+      losing all customers, or dropping below 3 employees.
+    grader: graders.grade_easy
+    max_quarters: 4
+    score_range: [0.0, 1.0]
+    score_formula: "quarters_survived / 4"
+
+  - id: medium
+    difficulty: medium
+    name: "Grow Valuation While Keeping Morale High"
+    description: >
+      Increase overall company valuation by at least 20% over 50 quarters
+      while keeping average employee morale above 60%.
+    grader: graders.grade_medium
+    max_quarters: 50
+    score_range: [0.0, 1.0]
+    score_formula: "0.6 × valuation_growth_pct + 0.4 × (avg_morale / 100)"
+
+  - id: hard
+    difficulty: hard
+    name: "Win the Pricing War for 8 Profitable Quarters"
+    description: >
+      Undercut the competitor's price in at least 6 of 8 target quarters
+      while staying profitable (profit > 0) and maintaining morale.
+    grader: graders.grade_hard
+    max_quarters: 50
+    score_range: [0.0, 1.0]
+    score_formula: "0.5 × (pricing_wins/8) + 0.3 × (profit_wins/8) + 0.2 × (avg_morale/100)"
