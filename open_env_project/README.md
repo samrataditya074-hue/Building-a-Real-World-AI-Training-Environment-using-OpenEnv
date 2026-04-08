@@ -117,21 +117,21 @@ This project is perfectly crafted to deploy instantly to Hugging Face Spaces via
 1. Create a new Space on [Hugging Face](https://huggingface.co/spaces) and select **Docker** as your Space SDK.
 2. Select the **Blank** Docker template.
 3. Upload all files from this repository.
-4. *(Optional)* Go to Settings -> Variables and secrets -> Add your `OPENAI_API_KEY` for the live LLM thought feature.
+4. *(Optional)* Go to Settings -> Variables and secrets -> Add your `GROQ_API_KEY` for the live LLM thought feature.
 5. The cloud will automatically build the `Dockerfile` and expose port `7860`. Your app will be live globally!
 
 #### Local Docker Testing
 ```bash
 docker build -t ceo-sim .
-docker run -p 7860:7860 -e OPENAI_API_KEY=sk-... ceo-sim
+docker run -p 7860:7860 -e GROQ_API_KEY=gsk_... ceo-sim
 ```
 
 ### Step 5 — Baseline evaluation (all 3 tasks)
 
 ```bash
 python baseline_inference.py --seed 42
-# With OpenAI:
-OPENAI_API_KEY=sk-... python baseline_inference.py --seed 42 --openai-model gpt-4o-mini
+# With Groq (Live LLM Insights):
+GROQ_API_KEY=gsk_... python baseline_inference.py --seed 42 --model llama-3.3-70b-versatile
 ```
 
 ### Step 6 — Train the AI yourself (optional, takes hours)
@@ -173,11 +173,11 @@ pip install -r requirements.txt
 # 3. Run deterministic baseline
 python baseline_inference.py --seed 42
 
-# Expected output (heuristic policy):
+# Expected output (LLM policy, seed=42):
 # {
 #   "seed": 42,
-#   "model": "heuristic",
-#   "scores": {"easy": 1.0, "medium": ~0.7, "hard": ~0.5},
+#   "model": "llama-3.3-70b-versatile",
+#   "scores": {"easy": 1.0, "medium": 0.94, "hard": 0.47},
 #   "quarters_run": {"easy": 4, "medium": 50, "hard": 50}
 # }
 ```

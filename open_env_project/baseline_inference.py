@@ -2,15 +2,15 @@
 baseline_inference.py — Deterministic baseline evaluation across all 3 OpenEnv tasks.
 
 Runs the CEO simulation with either:
-  (A) An OpenAI LLM policy (if OPENAI_API_KEY is set)
+  (A) A Groq LLM policy (if GROQ_API_KEY is set)
   (B) The built-in CorporateAgent heuristic (fallback, always available)
 
 Outputs a JSON summary with scores for all 3 tasks.
 
 Usage:
     python baseline_inference.py --seed 42
-    python baseline_inference.py --seed 42 --openai-model gpt-4o-mini
-    OPENAI_API_KEY=sk-... python baseline_inference.py --seed 42
+    python baseline_inference.py --seed 42 --model llama-3.3-70b-versatile
+    GROQ_API_KEY=gsk_... python baseline_inference.py --seed 42
 
 Expected output (heuristic policy, seed=42):
     {
@@ -206,8 +206,8 @@ def main() -> None:
         help="Random seed for reproducibility (default: 42)"
     )
     parser.add_argument(
-        "--openai-model", type=str, default="gpt-4o-mini",
-        help="OpenAI model to use if OPENAI_API_KEY is set (default: gpt-4o-mini)"
+        "--model", type=str, default="llama-3.3-70b-versatile",
+        help="Groq model to use if GROQ_API_KEY is set (default: llama-3.3-70b-versatile)"
     )
     parser.add_argument(
         "--output", type=str, default=None,
@@ -216,10 +216,13 @@ def main() -> None:
     args = parser.parse_args()
 
     # Determine which policy to use
-    api_key = os.getenv("OPENAI_API_KEY", "")
+    from dotenv import load_dotenv
+    load_dotenv()
+    api_key = os.getenv("GROQ_API_KEY", "")
     use_llm = HAS_OPENAI and bool(api_key)
-    openai_client = OpenAI(api_key=api_key) if use_llm else None
-    model_name = args.openai_model if use_llm else "heuristic"
+    # Configure the client to point to Groq's API endpoint
+    openai_client = OpenAI(api_key=api_key, base_url="https://api.groq.com/openai/v1") if use_llm else None
+    model_name = args.model if use_llm else "heuristic"
 
     print("=" * 60)
     print(f"Autonomous CEO — Baseline Inference")
@@ -241,7 +244,7 @@ def main() -> None:
             seed=args.seed,
             use_llm=use_llm,
             openai_client=openai_client,
-            openai_model=args.openai_model,
+            openai_model=args.model,
         )
         results["scores"][task] = task_result["score"]
         results["quarters_run"][task] = task_result["quarters_run"]

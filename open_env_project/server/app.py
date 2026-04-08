@@ -17,11 +17,14 @@ from models import Action, Observation, State
 from server.environment import CEOEnvironment
 from agent.business_agent import CorporateAgent
 
-# Add LLM Support
+# Add LLM Support (via Groq)
 try:
+    from dotenv import load_dotenv
+    load_dotenv()
     from openai import OpenAI
-    has_openai = bool(os.getenv("OPENAI_API_KEY"))
-    openai_client = OpenAI() if has_openai else None
+    _groq_key = os.getenv("GROQ_API_KEY", "")
+    has_openai = bool(_groq_key)
+    openai_client = OpenAI(api_key=_groq_key, base_url="https://api.groq.com/openai/v1") if has_openai else None
 except ImportError:
     has_openai = False
     openai_client = None
@@ -202,7 +205,7 @@ def get_llm_thought(s: State, base_thought: str) -> str:
              f"Task: Rewrite this logic into one dramatic, impressive, and strategic sentence as if you were presenting to the board."
     try:
         res = openai_client.chat.completions.create(
-            model="gpt-4o-mini",
+            model="llama-3.3-70b-versatile",
             messages=[{"role": "user", "content": prompt}],
             max_tokens=60,
             temperature=0.7
@@ -286,7 +289,7 @@ def stream_simulation(mode, speed="normal", user_p=0, user_m=0, user_h=0, user_r
         thought = step_res.info["thought"]
         
         # WOW FACTOR: In normal speed auto mode, generate live LLM insights for the thought cloud
-        if mode == "auto" and speed == "normal" and has_openai and (i % 3 == 0):
+        if mode == "auto" and speed == "normal" and has_openai:
             thought = get_llm_thought(s, thought)
 
         actions_text = format_actions(step_res.info["actions"])
@@ -397,7 +400,7 @@ with gr.Blocks(title="Autonomous CEO AI Simulator") as demo:
                     plot_3d = gr.Plot(label="3D Corporate Ecosystem")
                 with gr.Column(scale=1):
                     gr.Markdown("### 💭 AI Thought Cloud")
-                    thought_box = gr.Textbox(label="CEO Reasoning (Powered by LLM if OPENAI_API_KEY is set)", lines=3, interactive=False)
+                    thought_box = gr.Textbox(label="CEO Reasoning (Powered by Groq LLM if GROQ_API_KEY is set)", lines=3, interactive=False)
                     gr.Markdown("### ⚡ Actions Taken")
                     actions_box = gr.Textbox(label="Micro-Narrative Updates", lines=3, interactive=False)
                     gr.Markdown("### 📰 Event Log")

@@ -1,10 +1,12 @@
 import os
+from dotenv import load_dotenv
+load_dotenv()
 from openai import OpenAI
 
 def main():
-    api_key = os.getenv("OPENAI_API_KEY", os.getenv("HF_TOKEN"))
-    base_url = os.getenv("API_BASE_URL", "https://api.openai.com/v1")
-    model_name = os.getenv("MODEL_NAME", "gpt-4o-mini")
+    api_key = os.getenv("GROQ_API_KEY", os.getenv("HF_TOKEN"))
+    base_url = os.getenv("API_BASE_URL", "https://api.groq.com/openai/v1")
+    model_name = os.getenv("MODEL_NAME", "llama-3.3-70b-versatile")
 
     client = OpenAI(api_key=api_key, base_url=base_url)
 
