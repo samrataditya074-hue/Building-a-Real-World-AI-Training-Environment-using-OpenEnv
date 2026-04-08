@@ -1,3 +1,12 @@
+---
+title: Autonomous CEO AI Simulator
+emoji: 🏢
+colorFrom: blue
+colorTo: green
+sdk: docker
+pinned: false
+---
+
 # 🏢 Autonomous CEO AI Simulator
 
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/)
