@@ -1,3 +1,13 @@
+---
+title: Autonomous CEO Simulator
+emoji: 🏢
+colorFrom: yellow
+colorTo: green
+sdk: docker
+app_file: app.py
+pinned: false
+---
+
 # 🏢 Autonomous CEO Simulator — OpenEnv
 
 **A Production-Grade Corporate Ecosystem for Training Agentic AI**
@@ -45,7 +55,7 @@ The environment returns a normalized vector including:
 ## 🏆 Mandatory Tasks (Graders)
 1. **Survival (`review_annual_report`)** [Easy]: Run the company for 4 quarters without bankruptcy.
 2. **Valuation (`allocate_budget`)** [Medium]: Grow valuation by 20% over 50 quarters while keeping Morale > 60%.
-3. **Pricing War (`negotiate_merger`)** [Hard]: Undercut competitors in 6 of 8 target quarters while remaining profitable.
+3. **Pricing War (`negotiate_merger`)** [Hard]: Undercut competitors in 6 of 8 target quarters while remaining profitably.
 
 ---
 
