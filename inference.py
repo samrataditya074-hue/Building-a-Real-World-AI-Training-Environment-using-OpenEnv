@@ -30,6 +30,7 @@ TASK_CONFIG = {
     "easy_revenue_target": {"name": "Revenue Growth Benchmark", "difficulty": "easy", "max_steps": 4, "grader": GRADERS["easy_revenue_target"]},
     "medium_budget_balance": {"name": "Budget Scaling & Workforce Management", "difficulty": "medium", "max_steps": 8, "grader": GRADERS["medium_budget_balance"]},
     "hard_strategic_growth": {"name": "Long-Term Valuation Optimization", "difficulty": "hard", "max_steps": 12, "grader": GRADERS["hard_strategic_growth"]},
+    "ultimate_ceo_mastery": {"name": "Ultimate CEO Mastery", "difficulty": "super hard", "max_steps": 16, "grader": GRADERS["ultimate_ceo_mastery"]},
 }
 
 # ──────────────────────────────────────────────────────────────────────────────
