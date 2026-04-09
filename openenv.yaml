@@ -203,7 +203,7 @@ tasks:
       in (0.01, 0.99) calculated from achievement levels (70%) and survival (30%).
     grader: "graders:grade_revenue_target"
     max_steps: 4
-    reward_range: [0.0, 1.0]
+    score_range: [0.01, 0.99]
 
   - id: medium_budget_balance
     difficulty: medium
@@ -216,7 +216,7 @@ tasks:
       and the successful expansion of the workforce toward 30 staff (40%).
     grader: "graders:grade_budget_balance"
     max_steps: 8
-    reward_range: [0.0, 1.0]
+    score_range: [0.01, 0.99]
 
   - id: hard_strategic_growth
     difficulty: hard
@@ -229,6 +229,6 @@ tasks:
       total R&D advancement (25%), and customer brand sentiment (25%).
     grader: "graders:grade_strategic_growth"
     max_steps: 12
-    reward_range: [0.0, 1.0]
+    score_range: [0.01, 0.99]
 
 
