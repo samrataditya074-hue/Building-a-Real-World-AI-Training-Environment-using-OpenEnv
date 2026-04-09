@@ -231,4 +231,14 @@ tasks:
     max_steps: 12
     score_range: [0.01, 0.99]
 
-
+  - id: ultimate_ceo_mastery
+    difficulty: Super Hard
+    name: "[Super Hard] Ultimate CEO Mastery"
+    description: >
+      The agent must simultaneously achieve revenue growth, maintain workforce and financial stability, 
+      and maximize company valuation without triggering any crisis conditions.
+    evaluation_criteria: >
+      Score in (0.01, 0.99) mapped mathematically from revenue growth, workforce stability, cash survival, valuation, and lack of crises.
+    grader: "graders:grade_ultimate_ceo_mastery"
+    max_steps: 16
+    score_range: [0.01, 0.99]

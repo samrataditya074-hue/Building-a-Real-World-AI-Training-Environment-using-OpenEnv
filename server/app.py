@@ -52,6 +52,7 @@ TASK_METADATA = {
     "easy_revenue_target": {"name": "Revenue Growth Benchmark", "difficulty": "Easy"},
     "medium_budget_balance": {"name": "Budget Scaling & Workforce Management", "difficulty": "Medium"},
     "hard_strategic_growth": {"name": "Long-Term Valuation Optimization", "difficulty": "Hard"},
+    "ultimate_ceo_mastery": {"name": "Ultimate CEO Mastery", "difficulty": "Super Hard"},
 }
 
 # ========== GRADIO UI COMPONENTS ==========
@@ -444,7 +445,7 @@ with gr.Blocks(title="Autonomous CEO AI Simulator") as demo:
             with gr.Row():
                 with gr.Column():
                     task_select = gr.Dropdown(
-                        choices=["easy_revenue_target", "medium_budget_balance", "hard_strategic_growth"],
+                        choices=["easy_revenue_target", "medium_budget_balance", "hard_strategic_growth", "ultimate_ceo_mastery"],
                         value="easy_revenue_target",
                         label="Select Task Level (Authorization Required)"
                     )
@@ -460,7 +461,8 @@ with gr.Blocks(title="Autonomous CEO AI Simulator") as demo:
                 briefs = {
                     "easy_revenue_target": "**Goal**: Increase revenue by 10% within 1 year (4 Quarters).\n**Success**: Efficient pricing and marketing scaling.",
                     "medium_budget_balance": "**Goal**: Scale to 25+ staff with stable departmental budgets.\n**Success**: Balanced departmental share >10%.",
-                    "hard_strategic_growth": "**Goal**: Maximize valuation ($500k+) through long-term R&D.\n**Success**: High innovation and brand metrics."
+                    "hard_strategic_growth": "**Goal**: Maximize valuation ($500k+) through long-term R&D.\n**Success**: High innovation and brand metrics.",
+                    "ultimate_ceo_mastery": "**Goal**: Maximize revenue (25%+), valuation, and stability without triggering crises.\n**Success**: Balance all core constraints simultaneously."
                 }
                 return briefs.get(task, "")
             
@@ -502,7 +504,7 @@ with gr.Blocks(title="Autonomous CEO AI Simulator") as demo:
             m_metrics = gr.Markdown("### Adjust and click below")
             with gr.Row():
                 m_task_select = gr.Dropdown(
-                    choices=["easy_revenue_target", "medium_budget_balance", "hard_strategic_growth"],
+                    choices=["easy_revenue_target", "medium_budget_balance", "hard_strategic_growth", "ultimate_ceo_mastery"],
                     value="easy_revenue_target",
                     label="Active Task Context"
                 )

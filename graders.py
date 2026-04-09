@@ -87,6 +87,67 @@ def grade_strategic_growth(episode_history: List[Dict[str, Any]], seed: int = 42
     return smooth_score(raw_score)
 
 # ──────────────────────────────────────────────────────────────────────────────
+# Task 4 — Super Hard: ⚫ Ultimate CEO Mastery
+# ──────────────────────────────────────────────────────────────────────────────
+def grade_ultimate_ceo_mastery(episode_history: List[Dict[str, Any]], seed: int = 42) -> float:
+    """
+    Objective: Simultaneously achieve revenue growth (>=25%), maintain workforce/financial stability,
+               and maximize company valuation without triggering any crisis conditions.
+    Logic: Weighted combination of revenue, stability, financial health, valuation, and risk penalty.
+    
+    Success / Failure Criteria:
+    - Poor (0.01 - 0.3): Revenue growth < 5%, or crises triggered, or negative cash.
+    - Partial (0.3 - 0.7): Revenue growth 10-20%, some instability, moderate valuation growth.
+    - Strong (0.7 - 0.99): Revenue growth >= 25%, stable workforce, high valuation, 0 crises.
+    """
+    if not episode_history: return smooth_score(0.0)
+    
+    # 1. Revenue Score (Target >= 25% growth)
+    initial_revenue = max(1.0, episode_history[0].get("Revenue", 5000))
+    max_revenue = max([s.get("Revenue", 0) for s in episode_history])
+    revenue_growth = (max_revenue - initial_revenue) / initial_revenue
+    revenue_score = min(1.0, max(0.0, revenue_growth / 0.25))
+    
+    # 2. Stability Score (Workforce & Department funding variance)
+    avg_funding = sum([s.get("Departments_Funded", 0) / 5.0 for s in episode_history]) / len(episode_history)
+    min_emp = min([s.get("Total Employees", 0) for s in episode_history])
+    max_emp = max([s.get("Total Employees", 0) for s in episode_history])
+    workforce_stability = 1.0 if (max_emp - min_emp) <= 10 else 0.5
+    stability_score = (avg_funding + workforce_stability) / 2.0
+    
+    # 3. Financial Score (Cash > 0)
+    min_cash = min([s.get("Cash", 0) for s in episode_history])
+    financial_score = 1.0 if min_cash > 0 else 0.0
+    
+    # 4. Valuation Score
+    initial_val = max(1.0, episode_history[0].get("Valuation", 260000))
+    final_val = episode_history[-1].get("Valuation", 260000)
+    val_growth = (final_val - initial_val) / initial_val
+    valuation_score = min(1.0, max(0.0, val_growth / 0.50)) # Normalize to 50% target
+    
+    # 5. Risk Penalty (Check for crisis indicators)
+    crisis_triggered = False
+    for s in episode_history:
+        if s.get("Cash", 0) < 2000 or s.get("Morale", 50) < 35:
+            crisis_triggered = True
+            break
+        if "CRISIS" in s.get("Headline", "").upper() or "BANKRUPT" in s.get("Headline", "").upper():
+            crisis_triggered = True
+            break
+    
+    risk_penalty = 1.0 if crisis_triggered else 0.0
+
+    final_score = (
+        0.30 * revenue_score +
+        0.20 * stability_score +
+        0.20 * financial_score +
+        0.20 * valuation_score +
+        0.10 * (1.0 - risk_penalty)
+    )
+    
+    return smooth_score(final_score)
+
+# ──────────────────────────────────────────────────────────────────────────────
 # OpenEnv Rubric & Registry
 # ──────────────────────────────────────────────────────────────────────────────
 from openenv.core.rubrics import Rubric
@@ -107,4 +168,5 @@ GRADERS: Dict[str, Any] = {
     "easy_revenue_target": grade_revenue_target,
     "medium_budget_balance": grade_budget_balance,
     "hard_strategic_growth": grade_strategic_growth,
+    "ultimate_ceo_mastery": grade_ultimate_ceo_mastery,
 }
