@@ -24,7 +24,7 @@ The **Autonomous CEO Simulator** is a high-fidelity Reinforcement Learning envir
 - **Real-World Task Simulation**: Models a corporate fiscal lifecycle (not a game/toy).
 - **Full OpenEnv Compliance**: Implements Pydantic typed models for Observation, Action, and Reward.
 - **Densely Annotated Rewards**: Provides partial progress signals and penalizes destructive behavior (e.g., bankruptcy, mass resignations).
-- **3-Tier Graded Evaluation**: Includes mandatory tasks: Survival (Easy), Valuation (Medium), and Pricing War (Hard).
+- **3-Tier Graded Evaluation**: Includes mandatory tasks: Revenue Growth (Easy), Budget Stability (Medium), and Strategic Valuation (Hard).
 - **WOW Factor Dashboard**: A real-time 3D Gradio UI with live LLM narration of the CEO's "thoughts."
 
 ---
@@ -53,9 +53,9 @@ The environment returns a normalized vector including:
 ---
 
 ## 🏆 Mandatory Tasks (Graders)
-1. **Survival (`review_annual_report`)** [Easy]: Run the company for 4 quarters without bankruptcy.
-2. **Valuation (`allocate_budget`)** [Medium]: Grow valuation by 20% over 50 quarters while keeping Morale > 60%.
-3. **Pricing War (`negotiate_merger`)** [Hard]: Undercut competitors in 6 of 8 target quarters while remaining profitably.
+1. **Revenue Growth (`easy_revenue_target`)** [Easy]: Increase quarterly revenue by 10% within 4 quarters.
+2. **Budget Stability (`medium_budget_balance`)** [Medium]: Scale to 25+ staff while maintaining >10% departmental funding.
+3. **Strategic Valuation (`hard_strategic_growth`)** [Hard]: Maximize valuation through R&D and Reputation over 12 quarters.
 
 ---
 
