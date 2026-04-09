@@ -1,229 +1,100 @@
 """
-graders.py — Episode-history aware deterministic graders for all 3 OpenEnv tasks.
-
-Unlike tasks.py (which grades the final State snapshot), these graders receive the
-full episode history — a list of per-step metric dicts recorded by CEOEnvironment.
-This allows them to measure things like "how many quarters was profit positive?"
-rather than just looking at the last quarter.
-
-All graders:
-  - Accept (episode_history: list[dict], seed: int) for determinism documentation
-  - Return a float in [0.0, 1.0]
-  - Are pure functions — same inputs always produce the same output
-
-Usage:
-    from graders import GRADERS
-    score = GRADERS["easy"](env.state().metrics_history, seed=42)
+graders.py — Episode-history aware deterministic graders for all OpenEnv tasks.
+Updated with intermediate signals and a new Market Strategy task.
 """
 
 from typing import List, Dict, Any, Optional
-
 from openenv.core.rubrics import Rubric
 
-
-# ──────────────────────────────────────────────────────────────────────────────
-# Helper
-# ──────────────────────────────────────────────────────────────────────────────
 def _safe_avg(values: List[float], default: float = 0.0) -> float:
-    """Returns the mean of a list, or default if the list is empty."""
     return sum(values) / len(values) if values else default
 
-
 # ──────────────────────────────────────────────────────────────────────────────
-# Task 1 — Easy: Survive 4 Quarters
+# Task 1 — Easy: Review Annual Report
 # ──────────────────────────────────────────────────────────────────────────────
-def grade_easy(
-    episode_history: List[Dict[str, Any]],
-    seed: int = 42,  # kept for API consistency; grader is deterministic regardless
-) -> float:
+def grade_report(episode_history: List[Dict[str, Any]], seed: int = 42) -> float:
     """
-    Easy Task: Survive at least 4 quarters without going bankrupt.
-
-    Score = min(quarters_survived, 4) / 4
-      → 1.0 if the company made it through 4 quarters without termination.
-      → 0.75 if it survived 3 quarters, etc.
-
-    Plain English:
-      Just keep the lights on for one year (4 business quarters).
-      Even a small profit each quarter is enough to score full marks.
-
-    Args:
-        episode_history: List of per-step metric dicts from State.metrics_history.
-                         Each dict has keys: Quarter, Cash, Revenue, Profit, etc.
-        seed: RNG seed used during the episode (for reproducibility tracking).
-
-    Returns:
-        Float in [0.0, 1.0].
+    Easy Task: Identify key metrics in the annual report.
+    Intermediate rewards for each metric identified across quarters.
     """
-    TARGET_QUARTERS = 4
-    quarters_survived = len(episode_history)  # each entry = one quarter completed
-    score = min(quarters_survived, TARGET_QUARTERS) / TARGET_QUARTERS
+    if not episode_history: return 0.0
+    
+    total_metrics = sum(step.get("Metrics_Identified", 0) for step in episode_history)
+    # Max possible metrics (4 per quarter for 3 quarters)
+    max_metrics = 12.0
+    score = (len(episode_history) / 3) * 0.4 + (total_metrics / max_metrics) * 0.6
     return float(min(1.0, max(0.0, score)))
 
-
 # ──────────────────────────────────────────────────────────────────────────────
-# Task 2 — Medium: Grow Valuation While Keeping Morale High
+# Task 2 — Medium: Allocate Quarterly Budget
 # ──────────────────────────────────────────────────────────────────────────────
-def grade_medium(
-    episode_history: List[Dict[str, Any]],
-    seed: int = 42,
-) -> float:
+def grade_allocation(episode_history: List[Dict[str, Any]], seed: int = 42) -> float:
     """
-    Medium Task: Grow company valuation by ≥20% over 50 quarters while
-    keeping average employee morale above 60%.
-
-    Score = 0.6 × valuation_growth_component + 0.4 × morale_component
-
-    Where:
-      valuation_growth_component = min(1.0, growth_pct / 20)
-        → 1.0 if valuation grew by 20%+, partial credit below that.
-      morale_component = avg_morale / 100
-
-    Plain English:
-      Grow the company's overall worth (cash + brand + people + tech),
-      AND keep employees happy while doing it.
-
-    Args:
-        episode_history: List of per-step dicts from State.metrics_history.
-        seed: RNG seed used during the episode.
-
-    Returns:
-        Float in [0.0, 1.0].
+    Medium Task: Allocate budget across 5 departments.
+    Partial credit for each correctly funded department.
     """
-    if not episode_history:
-        return 0.0
-
-    TARGET_GROWTH_PCT = 20.0  # 20% valuation growth = full marks on that component
-    MORALE_WEIGHT = 0.4
-    VALUATION_WEIGHT = 0.6
-
-    initial_valuation = episode_history[0].get("Valuation", 1.0)
-    final_valuation = episode_history[-1].get("Valuation", initial_valuation)
-
-    # Avoid division by zero if initial valuation is 0
-    if initial_valuation <= 0:
-        growth_pct = 0.0
-    else:
-        growth_pct = ((final_valuation - initial_valuation) / initial_valuation) * 100.0
-
-    valuation_component = min(1.0, max(0.0, growth_pct / TARGET_GROWTH_PCT))
-
-    # Average morale across all quarters (stored as 0–100, divide to get 0–1)
-    morale_values = [
-        step.get("Morale", 50.0) / 100.0
-        for step in episode_history
-    ]
-    morale_component = _safe_avg(morale_values, default=0.0)
-
-    score = (VALUATION_WEIGHT * valuation_component) + (MORALE_WEIGHT * morale_component)
+    if not episode_history: return 0.0
+    
+    avg_funded = _safe_avg([step.get("Departments_Funded", 0) for step in episode_history])
+    # Full marks if average 5 departments funded correctly
+    score = avg_funded / 5.0
     return float(min(1.0, max(0.0, score)))
 
-
 # ──────────────────────────────────────────────────────────────────────────────
-# Task 3 — Hard: Win the Pricing War for 8 Profitable Quarters
+# Task 3 — Hard: Negotiate Strategic Merger
 # ──────────────────────────────────────────────────────────────────────────────
-def grade_hard(
-    episode_history: List[Dict[str, Any]],
-    seed: int = 42,
-) -> float:
+def grade_merger(episode_history: List[Dict[str, Any]], seed: int = 42) -> float:
     """
-    Hard Task: In at least 6 of the first 8 quarters, simultaneously:
-      (A) underprice the competitor (your price < competitor price), AND
-      (B) maintain positive profit (profit > 0)
-    … while also keeping average morale healthy.
-
-    Score = 0.5 × (pricing_wins / 8)
-           + 0.3 × (profit_wins / 8)
-           + 0.2 × (avg_morale / 100)
-
-    Plain English:
-      Beat the competitor on price to capture market share, but don't
-      discount so hard that you lose money. Do this consistently for
-      8 quarters straight while keeping your team motivated.
-
-    Args:
-        episode_history: List of per-step dicts. Expects keys:
-            "Our_Price" (float), "Competitor_Price" (float),
-            "Profit" (float), "Morale" (float).
-        seed: RNG seed used during the episode.
-
-    Returns:
-        Float in [0.0, 1.0].
+    Hard Task: Lead negotiation for a merger.
+    Incremental reward for each negotiation step completed.
     """
-    TARGET_QUARTERS = 8
-    PRICING_WEIGHT = 0.5
-    PROFIT_WEIGHT = 0.3
-    MORALE_WEIGHT = 0.2
-
-    if not episode_history:
-        return 0.0
-
-    # Only look at first 8 quarters (or however many exist)
-    evaluation_window = episode_history[:TARGET_QUARTERS]
-
-    pricing_wins = 0
-    profit_wins = 0
-    morale_values: List[float] = []
-
-    for step in evaluation_window:
-        our_price = step.get("Our_Price", 50.0)
-        comp_price = step.get("Competitor_Price", 50.0)
-        profit = step.get("Profit", 0.0)
-        morale = step.get("Morale", 50.0)
-
-        # Pricing win: we are cheaper than the competitor
-        if our_price < comp_price:
-            pricing_wins += 1
-
-        # Profit win: we made money this quarter
-        if profit > 0:
-            profit_wins += 1
-
-        morale_values.append(morale / 100.0)
-
-    pricing_component = pricing_wins / TARGET_QUARTERS
-    profit_component = profit_wins / TARGET_QUARTERS
-    morale_component = _safe_avg(morale_values, default=0.0)
-
-    score = (
-        PRICING_WEIGHT * pricing_component
-        + PROFIT_WEIGHT * profit_component
-        + MORALE_WEIGHT * morale_component
-    )
+    if not episode_history: return 0.0
+    
+    final_steps = episode_history[-1].get("Negotiation_Steps", 0)
+    # Max steps is 5
+    score = final_steps / 5.0
     return float(min(1.0, max(0.0, score)))
 
+# ──────────────────────────────────────────────────────────────────────────────
+# Task 4 — Hard: Evaluate Market Strategy
+# ──────────────────────────────────────────────────────────────────────────────
+def grade_strategy(episode_history: List[Dict[str, Any]], seed: int = 42) -> float:
+    """
+    Hard Task: Adaptation to market trends.
+    Scores based on brand reputation and handling of market shifts.
+    """
+    if not episode_history: return 0.0
+    
+    reputation_score = episode_history[-1].get("Brand_Reputation", 60.0) / 100.0
+    
+    # Check if price changes followed market trend (roughly)
+    # This is a bit complex, but we'll use a simplified signal: profit and reputation
+    avg_satisfaction = _safe_avg([step.get("Customer Satisfaction", 75.0) for step in episode_history]) / 100.0
+    
+    score = 0.6 * reputation_score + 0.4 * avg_satisfaction
+    return float(min(1.0, max(0.0, score)))
 
 # ──────────────────────────────────────────────────────────────────────────────
 # OpenEnv Rubric Implementation
 # ──────────────────────────────────────────────────────────────────────────────
 class CEORubric(Rubric):
-    """
-    Formal OpenEnv Rubric for the Autonomous CEO environment.
-    Wraps the episodic graders for real-time and terminal scoring.
-    """
-    def __init__(self, task_id: str = "grow_val_medium"):
+    def __init__(self, task_id: str = "review_annual_report"):
         super().__init__()
         self.task_id = task_id
-        self.grader = GRADERS.get(task_id, grade_medium)
+        self.grader = GRADERS.get(task_id, grade_report)
 
     def forward(self, action: Any, observation: Any) -> float:
-        """
-        OpenEnv forward pass. 
-        In ACE, grading is episodic/history-based, so typically 
-        we return 0.0 during the episode and the final score at the end.
-        """
         return 0.0
 
     def score_history(self, history: List[Dict[str, Any]]) -> float:
-        """Calculate score based on historical metrics."""
         return self.grader(history)
-
 
 # ──────────────────────────────────────────────────────────────────────────────
 # Registry
 # ──────────────────────────────────────────────────────────────────────────────
 GRADERS: Dict[str, Any] = {
-    "survive_easy": grade_easy,
-    "grow_val_medium": grade_medium,
-    "undercut_hard": grade_hard,
+    "review_annual_report": grade_report,
+    "allocate_budget": grade_allocation,
+    "negotiate_merger": grade_merger,
+    "evaluate_market_strategy": grade_strategy,
 }

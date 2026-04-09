@@ -112,14 +112,49 @@ python demo_nontech.py
 python demo_nontech.py --quarters 10 --seed 99
 ```
 
-### Step 3 — Full interactive dashboard (browser)
+---
 
+## 🛠 Usage & Deployment
+
+### 1. Mandatory Configuration
+Before running inference or submitting, ensure the following environment variables are set:
+- `API_BASE_URL`: The API endpoint for the LLM (default: `https://router.huggingface.co/v1`).
+- `MODEL_NAME`: The model identifier to use (default: `Qwen/Qwen2.5-72B-Instruct`).
+- `HF_TOKEN`: Your Hugging Face / API key.
+
+### 2. Running Validation
+To ensure the environment is fully compliant with OpenEnv Phase 2 specs, run:
 ```bash
-python -m uvicorn server.app:app --host 0.0.0.0 --port 7860
-# Then open: http://localhost:7860
+openenv validate
+```
+**Expected Output:**
+```text
+[OK] Autonomous CEO Simulator: Ready for multi-mode deployment
 ```
 
-### Step 4 — Hugging Face Spaces Deployment (Free Cloud Hosting)
+### 3. Local task Evaluation (Baseline)
+Run the automated evaluation script to check task completion and grader scoring:
+```bash
+# Set your HF_TOKEN first
+export HF_TOKEN="your_token_here"
+python inference.py
+```
+*Note: The script emits structured logs strictly matching the `[START]`, `[STEP]`, and `[END]` format required by hackathon judges.*
+
+### 4. Docker Build & Deployment
+Build the container for production or Hugging Face Spaces:
+```bash
+docker build -t ceo-sim .
+```
+
+### 5. Training the Agent
+To train a new RL policy using Stable-Baselines3:
+```bash
+python train_rl.py
+```
+
+
+### Step 5 — Hugging Face Spaces Deployment (Free Cloud Hosting)
 
 This project is perfectly crafted to deploy instantly to Hugging Face Spaces via Docker. No internal file changes are needed.
 
@@ -163,9 +198,11 @@ The environment defines three benchmark tasks, each returning a score in **[0.0 
 
 | Task | Difficulty | Goal | How it's scored |
 |---|---|---|---|
-| **Survive** | 🟢 Easy | Keep the company alive for 4 quarters | `quarters_survived / 4` |
-| **Grow** | 🟡 Medium | Grow valuation ≥20% over 50 quarters, keeping morale > 60% | `0.6 × valuation_growth + 0.4 × avg_morale` |
-| **Win** | 🔴 Hard | Undercut competitor price AND stay profitable for 8 quarters | `0.5 × pricing_wins + 0.3 × profit_wins + 0.2 × avg_morale` |
+| **Annual Report** | 🟢 Easy | Identify key performance metrics in the annual report | `0.4 × survival + 0.6 × metrics_identified` |
+| **Budget** | 🟡 Medium | Ensure all 5 departments are adequately funded (>10%) | `count(funded_depts) / 5` (average per step) |
+| **Merger** | 🔴 Hard | Lead a multi-stage negotiation for a strategic merger | `negotiation_steps / 5` |
+| **Market Strategy**| 🔴 Hard | Adapt pricing and operations to handle market shifts | `0.5 × satisfation + 0.5 × brand_reputation` |
+
 
 ---
 

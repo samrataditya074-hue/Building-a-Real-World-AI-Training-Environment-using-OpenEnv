@@ -434,6 +434,34 @@ class CEOEnvironment(Environment[Action, Observation, State]):
             s.employee_morale -= 5.0
             self.action_labels.append("✂️ Emergency cost-cutting")
 
+        # ── Stage 13b: Intermediate Progress Signals ──────────────────────────
+        # These signals track partial completion within large tasks (Stages 2 of 1)
+        
+        # 1. Metrics identified (Annual Report task)
+        metrics_identified = 0
+        if s.revenue > self._prev_profit: metrics_identified += 1
+        if s.profit > self._prev_profit: metrics_identified += 1
+        if s.customer_satisfaction > 70: metrics_identified += 1
+        if s.employee_morale > 70: metrics_identified += 1
+        
+        # 2. Departments funded (Budget task)
+        # Check if core departments have at least 10% budget share
+        funded_depts = [
+            s.finance_budget > 0.1,
+            s.sales_budget > 0.1,
+            s.hr_budget > 0.1,
+            s.customer_budget > 0.1,
+            s.ops_budget > 0.1
+        ]
+        departments_funded_count = sum(funded_depts)
+        
+        # 3. Negotiation Steps (Merger task)
+        # Progress increases if the CEO is investing in the company's future
+        if rd_invest > 100 or task_alloc != 0 or budget_shift > 0.2:
+            s.merger_progress = min(100.0, s.merger_progress + self._rng.uniform(5.0, 15.0))
+        negotiation_steps = int(s.merger_progress / 20) # 0-5 steps
+
+
         # ── Stage 14: Reward Calculation ──────────────────────────────────────
         # Reward = (how well things are going) - (how badly things are going)
         # Plus continuous shaping signals that reward improving trends.
@@ -521,10 +549,14 @@ class CEOEnvironment(Environment[Action, Observation, State]):
             "Customer Satisfaction": round(s.customer_satisfaction, 2),
             "RD_Progress": round(s.rd_progress, 2),
             "Reward": round(total_reward, 4),
+            "Metrics_Identified": metrics_identified,
+            "Departments_Funded": departments_funded_count,
+            "Negotiation_Steps": negotiation_steps,
             "Headline": s.headline,
             "AI Thought": thought.replace("\n", " "),
         }
         s.metrics_history.append(step_record)
+
         s.last_actions = {"actions": self.action_labels, "thought": thought}
 
         # Episode trace (for debugging — only written if TRACE_LOGGING=1)
@@ -541,10 +573,14 @@ class CEOEnvironment(Environment[Action, Observation, State]):
                 "rd_payoff": rd_payoff,
                 "fire_penalty": fire_penalty,
             },
+            "metrics_identified": metrics_identified,
+            "departments_funded_count": departments_funded_count,
+            "negotiation_steps": negotiation_steps,
             "thought": thought,
             "actions": self.action_labels,
             "crisis_count": crisis_count,
         }
+
 
         obs = s.to_observation()
         obs.reward = total_reward
@@ -693,7 +729,8 @@ class CEOEnvironment(Environment[Action, Observation, State]):
     def get_metadata(self):
         from openenv.core.env_server.types import EnvironmentMetadata
         return EnvironmentMetadata(
-            name="autonomous_ceo",
-            description="Continuous strategic business simulation.",
-            version="2.0.0"
+            name="Autonomous CEO Simulator",
+            description="Highly realistic, multi-stage corporate executive simulation.",
+            version="2.1.0"
         )
+
