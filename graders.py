@@ -19,6 +19,11 @@ def grade_revenue_target(episode_history: List[Dict[str, Any]], seed: int = 42) 
     """
     Objective: Increase revenue by 10% within 4 fiscal quarters.
     Logic: (Revenue Ratio achieved x 0.7) + (Survival Duration x 0.3)
+    
+    Success / Failure Criteria:
+    - Poor (0.01 - 0.3): Revenue shrinks or stays flat; company bankrupts early.
+    - Partial (0.3 - 0.7): Revenue grows but doesn't hit +10%, or survives but metrics flatline.
+    - Strong (0.7 - 0.99): Achieves >= 10% revenue growth safely through all quarters.
     """
     if not episode_history: return smooth_score(0.0)
     
@@ -41,6 +46,11 @@ def grade_budget_balance(episode_history: List[Dict[str, Any]], seed: int = 42) 
     """
     Objective: Maintain balanced budget (>10% per dept) while scaling team (>25).
     Logic: (Dept Funding Stability x 0.6) + (Workforce Growth x 0.4)
+    
+    Success / Failure Criteria:
+    - Poor (0.01 - 0.3): Budgets severely skewed, workforce shrinks.
+    - Partial (0.3 - 0.7): Reaches ~25 employees but budgets unstable, or stable but no growth.
+    - Strong (0.7 - 0.99): Scales >25 staff with perfect >10% funding across all 5 departments.
     """
     if not episode_history: return smooth_score(0.0)
     
@@ -58,6 +68,11 @@ def grade_strategic_growth(episode_history: List[Dict[str, Any]], seed: int = 42
     """
     Objective: Maximize valuation and market position through R&D and Brand.
     Logic: (Valuation Growth x 0.5) + (Innovation/Reputation x 0.5)
+    
+    Success / Failure Criteria:
+    - Poor (0.01 - 0.3): Valuation drops significantly, R&D ignored, reputation plummets.
+    - Partial (0.3 - 0.7): Modest valuation growth; some R&D progress but low satisfaction.
+    - Strong (0.7 - 0.99): Valuation hits $500k target, R&D progress near 100, high brand trust.
     """
     if not episode_history: return smooth_score(0.0)
     
