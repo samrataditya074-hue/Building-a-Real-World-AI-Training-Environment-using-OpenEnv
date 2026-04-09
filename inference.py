@@ -43,14 +43,14 @@ def log_step(step: int, action: str, reward: float, done: bool, error: Optional[
     error_val = error if error else "null"
     done_val = str(done).lower()
     print(
-        f"[STEP] step={step} action={action} reward={reward:.4f} done={done_val} error={error_val}",
+        f"[STEP] step={step} action={action} reward={reward:.2f} done={done_val} error={error_val}",
         flush=True,
     )
 
-def log_end(task: str, name: str, difficulty: str, success: bool, steps: int, score: float, rewards: List[float]) -> None:
-    rewards_str = ",".join(f"{r:.4f}" for r in rewards)
+def log_end(success: bool, steps: int, score: float, rewards: List[float]) -> None:
+    rewards_str = ",".join(f"{r:.2f}" for r in rewards)
     print(
-        f"[END] task={task} name=\"{name}\" difficulty={difficulty} success={str(success).lower()} steps={steps} score={score:.4f} rewards=[{rewards_str}]",
+        f"[END] success={str(success).lower()} steps={steps} score={score:.3f} rewards={rewards_str}",
         flush=True
     )
 
@@ -152,9 +152,6 @@ def run_evaluation(client: OpenAI, env: CEOEnvironment, task_id: str) -> float:
         print(f"[ERROR] Task {task_id} failed: {e}", flush=True)
     finally:
         log_end(
-            task=task_id, 
-            name=config["name"], 
-            difficulty=config["difficulty"],
             success=success, 
             steps=steps_taken, 
             score=score, 
