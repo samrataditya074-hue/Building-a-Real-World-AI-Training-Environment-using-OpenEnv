@@ -600,9 +600,8 @@ with gr.Blocks(title="Autonomous CEO AI Simulator") as demo:
     refresh_lb.click(fn=refresh_leaderboard, outputs=[leaderboard_ui])
 
 
-# Mount Gradio app to FastAPI server with Authentication
-# Credentials: admin / ceo2026
-app = gr.mount_gradio_app(app, demo, path="/", auth=("admin", "ceo2026"))
+# Mount Gradio app to FastAPI server without Authentication
+app = gr.mount_gradio_app(app, demo, path="/")
 
 def main():
     uvicorn.run(app, host="0.0.0.0", port=7860)
