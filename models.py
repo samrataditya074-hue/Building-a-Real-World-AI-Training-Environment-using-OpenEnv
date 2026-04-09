@@ -307,7 +307,10 @@ class State:
     event_history: List[str] = field(default_factory=list)
     competitor_price_history: List[float] = field(default_factory=list)
     metrics_history: List[Dict[str, Any]] = field(default_factory=list)
-    merger_progress: float = 0.0  # Track progress for negotiation tasks
+
+    # Task-specific deterministic counters
+    merger_milestones: int = 0  # 0 to 5
+    metrics_discovered: int = 0 # 0 to 12
 
 
     # ── Computed helpers ──────────────────────────────────────────────────────

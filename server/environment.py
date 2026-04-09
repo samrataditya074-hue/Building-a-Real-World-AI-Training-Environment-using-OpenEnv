@@ -438,11 +438,15 @@ class CEOEnvironment(Environment[Action, Observation, State]):
         # These signals track partial completion within large tasks (Stages 2 of 1)
         
         # 1. Metrics identified (Annual Report task)
-        metrics_identified = 0
-        if s.revenue > self._prev_profit: metrics_identified += 1
-        if s.profit > self._prev_profit: metrics_identified += 1
-        if s.customer_satisfaction > 70: metrics_identified += 1
-        if s.employee_morale > 70: metrics_identified += 1
+        s.metrics_discovered = 0
+        if s.revenue > 1000: s.metrics_discovered += 1
+        if s.profit > 0: s.metrics_discovered += 1
+        if s.customer_satisfaction > 70: s.metrics_discovered += 1
+        if s.employee_morale > 70: s.metrics_discovered += 1
+        if s.inventory > 100: s.metrics_discovered += 1
+        if s.brand_reputation > 50: s.metrics_discovered += 1
+        if s.rd_progress > 20: s.metrics_discovered += 1
+        if s.total_employees > 15: s.metrics_discovered += 1
         
         # 2. Departments funded (Budget task)
         # Check if core departments have at least 10% budget share
@@ -456,10 +460,10 @@ class CEOEnvironment(Environment[Action, Observation, State]):
         departments_funded_count = sum(funded_depts)
         
         # 3. Negotiation Steps (Merger task)
-        # Progress increases if the CEO is investing in the company's future
-        if rd_invest > 100 or task_alloc != 0 or budget_shift > 0.2:
-            s.merger_progress = min(100.0, s.merger_progress + self._rng.uniform(5.0, 15.0))
-        negotiation_steps = int(s.merger_progress / 20) # 0-5 steps
+        # Progress increases based on specific strategic actions
+        if rd_invest > 100: s.merger_milestones = min(5, s.merger_milestones + 1)
+        if task_alloc < -0.5: s.merger_milestones = min(5, s.merger_milestones + 1)
+        if budget_shift > 0.5: s.merger_milestones = min(5, s.merger_milestones + 1)
 
 
         # ── Stage 14: Reward Calculation ──────────────────────────────────────
@@ -549,9 +553,9 @@ class CEOEnvironment(Environment[Action, Observation, State]):
             "Customer Satisfaction": round(s.customer_satisfaction, 2),
             "RD_Progress": round(s.rd_progress, 2),
             "Reward": round(total_reward, 4),
-            "Metrics_Identified": metrics_identified,
+            "Metrics_Identified": s.metrics_discovered,
             "Departments_Funded": departments_funded_count,
-            "Negotiation_Steps": negotiation_steps,
+            "Negotiation_Steps": s.merger_milestones,
             "Headline": s.headline,
             "AI Thought": thought.replace("\n", " "),
         }
@@ -573,9 +577,9 @@ class CEOEnvironment(Environment[Action, Observation, State]):
                 "rd_payoff": rd_payoff,
                 "fire_penalty": fire_penalty,
             },
-            "metrics_identified": metrics_identified,
+            "metrics_identified": s.metrics_discovered,
             "departments_funded_count": departments_funded_count,
-            "negotiation_steps": negotiation_steps,
+            "negotiation_steps": s.merger_milestones,
             "thought": thought,
             "actions": self.action_labels,
             "crisis_count": crisis_count,

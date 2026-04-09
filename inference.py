@@ -1,8 +1,13 @@
 import os
 import json
 import textwrap
-from typing import List, Optional
+import sys
+from typing import List, Optional, Any
 from openai import OpenAI
+
+# Ensure project root is in path for imports
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+
 from server.environment import CEOEnvironment
 from models import Action
 from graders import GRADERS
@@ -16,26 +21,16 @@ MODEL_NAME = os.getenv("MODEL_NAME") or "Qwen/Qwen2.5-72B-Instruct"
 
 # Benchmark and Task metadata
 BENCHMARK = "Autonomous CEO Simulator"
-TASK_NAME = os.getenv("TASK_ID") or "allocate_budget" # Default task
-MAX_STEPS = 8
 TEMPERATURE = 0.7
 MAX_TOKENS = 150
 SUCCESS_SCORE_THRESHOLD = 0.1  # normalized score in [0, 1]
 
 # Task Configuration Mapping
 TASK_CONFIG = {
-    "review_annual_report": {"max_steps": 3, "grader": GRADERS["review_annual_report"]},
-    "allocate_budget": {"max_steps": 4, "grader": GRADERS["allocate_budget"]},
-    "negotiate_merger": {"max_steps": 5, "grader": GRADERS["negotiate_merger"]},
-    "evaluate_market_strategy": {"max_steps": 8, "grader": GRADERS["evaluate_market_strategy"]},
+    "easy_revenue_target": {"name": "Revenue Growth Benchmark", "difficulty": "easy", "max_steps": 4, "grader": GRADERS["easy_revenue_target"]},
+    "medium_budget_balance": {"name": "Budget Scaling & Workforce Management", "difficulty": "medium", "max_steps": 8, "grader": GRADERS["medium_budget_balance"]},
+    "hard_strategic_growth": {"name": "Long-Term Valuation Optimization", "difficulty": "hard", "max_steps": 12, "grader": GRADERS["hard_strategic_growth"]},
 }
-
-# Fallback if unknown task provided
-if TASK_NAME not in TASK_CONFIG:
-    TASK_NAME = "allocate_budget"
-
-MAX_STEPS = TASK_CONFIG[TASK_NAME]["max_steps"]
-GRADER_FN = TASK_CONFIG[TASK_NAME]["grader"]
 
 # ──────────────────────────────────────────────────────────────────────────────
 # STDOUT LOGGING HELPERS (Strictly following Hackathon Spec)
@@ -47,13 +42,16 @@ def log_step(step: int, action: str, reward: float, done: bool, error: Optional[
     error_val = error if error else "null"
     done_val = str(done).lower()
     print(
-        f"[STEP] step={step} action={action} reward={reward:.2f} done={done_val} error={error_val}",
+        f"[STEP] step={step} action={action} reward={reward:.4f} done={done_val} error={error_val}",
         flush=True,
     )
 
-def log_end(success: bool, steps: int, score: float, rewards: List[float]) -> None:
-    rewards_str = ",".join(f"{r:.2f}" for r in rewards)
-    print(f"[END] success={str(success).lower()} steps={steps} score={score:.3f} rewards={rewards_str}", flush=True)
+def log_end(task: str, name: str, difficulty: str, success: bool, steps: int, score: float, rewards: List[float]) -> None:
+    rewards_str = ",".join(f"{r:.4f}" for r in rewards)
+    print(
+        f"[END] task={task} name=\"{name}\" difficulty={difficulty} success={str(success).lower()} steps={steps} score={score:.4f} rewards=[{rewards_str}]",
+        flush=True
+    )
 
 # ──────────────────────────────────────────────────────────────────────────────
 # MODEL INTERACTION
@@ -97,42 +95,42 @@ def get_model_action(client: OpenAI, obs_dict: dict) -> Action:
         return Action()
 
 # ──────────────────────────────────────────────────────────────────────────────
-# MAIN LOOP
+# CORE EVALUATION LOGIC
 # ──────────────────────────────────────────────────────────────────────────────
-def main():
-    client = OpenAI(base_url=API_BASE_URL, api_key=API_KEY)
-    env = CEOEnvironment()
+def run_evaluation(client: OpenAI, env: CEOEnvironment, task_id: str) -> float:
+    """Run a single task evaluation and return the final score."""
+    if task_id not in TASK_CONFIG:
+        return 0.0
 
+    config = TASK_CONFIG[task_id]
+    max_steps = config["max_steps"]
+    grader_fn = config["grader"]
+    
     rewards: List[float] = []
     steps_taken = 0
     score = 0.0
     success = False
 
-    log_start(task=TASK_NAME, env=BENCHMARK, model=MODEL_NAME)
+    log_start(task=task_id, env=BENCHMARK, model=MODEL_NAME)
 
     try:
-        obs = env.reset(seed=42, task_id=TASK_NAME)
+        obs = env.reset(seed=42, task_id=task_id)
         
-        for step in range(1, MAX_STEPS + 1):
+        for step in range(1, max_steps + 1):
             # Get observation in readable format for LLM
             obs_dict = {
                 "cash": round(obs.cash_norm * 200000, 0),
                 "revenue": round(obs.revenue_norm * 5000, 0),
                 "morale": round(obs.employee_morale_norm * 100, 1),
                 "satisfaction": round(obs.customer_satisfaction_norm * 100, 1),
-                "market_trend": obs.market_trend,
                 "reputation": round(obs.brand_reputation_norm * 100, 1),
-                "active_crisis": bool(obs.cash_crisis_flag or obs.morale_crisis_flag)
+                "crises": obs.info.get("crisis_count", 0)
             }
             
             action = get_model_action(client, obs_dict)
-            
-            # Record action description for logging
-            action_desc = f"Pricing:{action.price_adjustment:.1f},Hire:{action.hire_fire:.1f},R&D:{action.rd_investment:.1f}"
+            action_desc = f"P:{action.price_adjustment:.1f},H:{action.hire_fire:.1f},R:{action.rd_investment:.1f}"
             
             result = env.step(action)
-            obs = result
-            
             reward = result.reward or 0.0
             done = result.done
             
@@ -140,21 +138,45 @@ def main():
             steps_taken = step
             
             log_step(step=step, action=action_desc, reward=reward, done=done, error=None)
-
-            if done:
-                break
+            if done: break
+            obs = result
 
         # Calculate score using the task's specific grader
         history = env.state_obj.metrics_history
-        score = GRADER_FN(history, seed=42)
-        score = min(max(score, 0.0), 1.0)  # clamp to [0, 1]
+        score = grader_fn(history, seed=42)
+        score = min(max(score, 0.0), 1.0)
         success = score >= SUCCESS_SCORE_THRESHOLD
 
     except Exception as e:
-        # Final log must happen even on failure
-        pass
+        print(f"[ERROR] Task {task_id} failed: {e}", flush=True)
     finally:
-        log_end(success=success, steps=steps_taken, score=score, rewards=rewards)
+        log_end(
+            task=task_id, 
+            name=config["name"], 
+            difficulty=config["difficulty"],
+            success=success, 
+            steps=steps_taken, 
+            score=score, 
+            rewards=rewards
+        )
+    
+    return score
+
+# ──────────────────────────────────────────────────────────────────────────────
+# MAIN ENTRY POINT
+# ──────────────────────────────────────────────────────────────────────────────
+def main():
+    client = OpenAI(base_url=API_BASE_URL, api_key=API_KEY)
+    env = CEOEnvironment()
+
+    target_task = os.getenv("TASK_ID")
+    
+    if target_task and target_task in TASK_CONFIG:
+        run_evaluation(client, env, target_task)
+    else:
+        # Fallback: Run all 3 tasks in sequence if no specific TASK_ID
+        for task in TASK_CONFIG.keys():
+            run_evaluation(client, env, task)
 
 if __name__ == "__main__":
     main()

@@ -192,36 +192,43 @@ reward:
 
 # ─── Tasks ───────────────────────────────────────────────────────────────────
 tasks:
-  - id: review_annual_report
+  - id: easy_revenue_target
     difficulty: easy
-    name: "Review Annual Report"
-    description: "Identify and track key performance metrics in the annual report."
-    grader: "env.tasks.review_report:grade_report"
-    max_steps: 3
-    reward_range: [0.0, 1.0]
-
-  - id: allocate_budget
-    difficulty: medium
-    name: "Allocate Quarterly Budget"
-    description: "Ensure all 5 corporate departments are adequately funded for growth."
-    grader: "env.tasks.budget:grade_allocation"
+    name: "[Easy] Revenue Growth Benchmark"
+    description: >
+      Demonstrate fundamental business operations by increasing quarterly revenue 
+      by 10% relative to initial startup levels within a 4-quarter window.
+    evaluation_criteria: >
+      Success is measured by the peak revenue achieved. Score is a continuous float 
+      in (0.01, 0.99) calculated from achievement levels (70%) and survival (30%).
+    grader: "graders:grade_revenue_target"
     max_steps: 4
     reward_range: [0.0, 1.0]
 
-  - id: negotiate_merger
-    difficulty: hard
-    name: "Negotiate Strategic Merger"
-    description: "Execute a multi-stage negotiation process for a strategic corporate merger."
-    grader: "env.tasks.merger:grade_merger"
-    max_steps: 5
+  - id: medium_budget_balance
+    difficulty: medium
+    name: "[Medium] Budget Scaling & Workforce Management"
+    description: >
+      Scale the organization to >25 employees while maintaining a balanced budget 
+      distribution (>10% per department) and preventing bankruptcy over 8 quarters.
+    evaluation_criteria: >
+      Score in (0.01, 0.99) based on the stability of department funding (60%) 
+      and the successful expansion of the workforce toward 30 staff (40%).
+    grader: "graders:grade_budget_balance"
+    max_steps: 8
     reward_range: [0.0, 1.0]
 
-  - id: evaluate_market_strategy
+  - id: hard_strategic_growth
     difficulty: hard
-    name: "Evaluate Market Strategy"
-    description: "Adapt pricing and operations to handle complex market trend shifts."
-    grader: "env.tasks.market_strategy:grade_strategy"
-    max_steps: 8
+    name: "[Hard] Long-Term Valuation optimization"
+    description: >
+      Maximize the company's intrinsic valuation over a 12-quarter strategic cycle 
+      by prioritizing R&D progress, brand reputation, and operational excellence.
+    evaluation_criteria: >
+      Continuous score in (0.01, 0.99). Weighted average of terminal valuation (50%), 
+      total R&D advancement (25%), and customer brand sentiment (25%).
+    grader: "graders:grade_strategic_growth"
+    max_steps: 12
     reward_range: [0.0, 1.0]
 
 

@@ -16,6 +16,7 @@ from openenv.core.env_server import create_app
 from models import Action, Observation, State
 from server.environment import CEOEnvironment
 from agent.business_agent import CorporateAgent
+from graders import GRADERS
 
 # Add LLM Support (via Groq)
 try:
@@ -45,6 +46,13 @@ def export_to_csv(history):
     writer.writeheader()
     writer.writerows(history)
     return output.getvalue()
+
+# Metadata for Grader & UI reporting
+TASK_METADATA = {
+    "easy_revenue_target": {"name": "Revenue Growth Benchmark", "difficulty": "Easy"},
+    "medium_budget_balance": {"name": "Budget Scaling & Workforce Management", "difficulty": "Medium"},
+    "hard_strategic_growth": {"name": "Long-Term Valuation Optimization", "difficulty": "Hard"},
+}
 
 # ========== GRADIO UI COMPONENTS ==========
 
@@ -220,11 +228,11 @@ def format_actions(actions):
         return "No actions this quarter."
     return "\n".join([f"• {a}" for a in actions])
 
-def stream_simulation(mode, speed="normal", user_p=0, user_m=0, user_h=0, user_r=0,
+def stream_simulation(task_id, mode, speed="normal", user_p=0, user_m=0, user_h=0, user_r=0,
                        user_s=0, user_t=0, user_c=0, user_b=0):
     """Main simulation generator with speed control and headline support."""
     agent = CorporateAgent()
-    obs = env.reset()
+    obs = env.reset(task_id=task_id)
     delay = 0.15 if speed == "normal" else 0.01
 
     pos_hist, neg_hist, steps = [], [], []
@@ -299,7 +307,7 @@ def stream_simulation(mode, speed="normal", user_p=0, user_m=0, user_h=0, user_r
         # New Hackathon Features
         headline_html = f"<div style='background: #111; padding: 15px; border-left: 5px solid #f1c40f; margin-bottom: 20px;'><h2 style='color: #eee; margin: 0; font-family: serif;'>{s.headline}</h2></div>"
 
-        yield plot_3d, reward_fig, comp_fig, val_fig, metrics, thought, actions_text, events_text, roster_data, headline_html
+        yield plot_3d, reward_fig, comp_fig, val_fig, metrics, thought, actions_text, events_text, roster_data, headline_html, ""
 
         if step_res.done:
             # Handle leaderboard
@@ -317,7 +325,20 @@ def stream_simulation(mode, speed="normal", user_p=0, user_m=0, user_h=0, user_r
             else:
                 reason = "🏁 MAX STEPS"
             
-            yield plot_3d, reward_fig, comp_fig, val_fig, f"### ☠️ SIMULATION TERMINATED: {reason}", thought, actions_text, events_text, roster_data, headline_html
+            # Hardened Programmatic Grader Invocation
+            grader_fn = GRADERS.get(task_id, GRADERS["easy_revenue_target"])
+            final_score = grader_fn(env.typed_state().metrics_history)
+            
+            meta = TASK_METADATA.get(task_id, {"name": "Unknown", "difficulty": "N/A"})
+            report_md = f"# 🏁 MISSION COMPLETE\n" \
+                        f"**Task**: {meta['name']}\n" \
+                        f"**Difficulty**: {meta['difficulty']}\n" \
+                        f"**Final Grader Score**: {final_score:.4f}\n" \
+                        f"---\n" \
+                        f"*Result: {reason}*"
+            
+            # Yield final state with the bold report card at the end
+            yield plot_3d, reward_fig, comp_fig, val_fig, metrics, thought, actions_text, events_text, roster_data, headline_html, report_md
             break
 
         time.sleep(current_delay)
@@ -374,9 +395,9 @@ def run_clash(p, m, h, r, s, t, c, b):
         time.sleep(0.05)
 
 
-def reset_environment():
+def reset_environment(task_id):
     """Manual reset of the environment"""
-    env.reset()
+    env.reset(task_id=task_id)
     s = env.typed_state()
     # Return empty graphs and starting metrics
     plot_3d = create_3d_landscape(s.dept_scores())
@@ -385,7 +406,7 @@ def reset_environment():
     val_fig = create_valuation_plot([], [])
     metrics = format_metrics(s)
     roster_data = s.get_roster()
-    return plot_3d, reward_fig, comp_fig, val_fig, metrics, "Simulation reset.", "Waiting for actions.", "Event log cleared.", roster_data, "<div style='height: 50px;'></div>"
+    return plot_3d, reward_fig, comp_fig, val_fig, metrics, "Simulation reset.", "Waiting for actions.", "Event log cleared.", roster_data, "<div style='height: 50px;'></div>", ""
 
 with gr.Blocks(title="Autonomous CEO AI Simulator") as demo:
     gr.Markdown("# 🏢 Autonomous CEO AI Simulator")
@@ -395,6 +416,7 @@ with gr.Blocks(title="Autonomous CEO AI Simulator") as demo:
         # --- TAB 1: AUTONOMOUS SIMULATION ---
         with gr.Tab("🤖 Autonomous AI Dashboard"):
             ticker = gr.HTML("<div style='background: #111; padding: 15px; border-left: 5px solid #f1c40f; margin-bottom: 20px;'><h2 style='color: #eee; margin: 0; font-family: serif;'>Waiting for CEO founding...</h2></div>")
+            mission_report = gr.Markdown("", label="Final Mission Results")
             with gr.Row():
                 with gr.Column(scale=2):
                     plot_3d = gr.Plot(label="3D Corporate Ecosystem")
@@ -418,15 +440,31 @@ with gr.Blocks(title="Autonomous CEO AI Simulator") as demo:
                     interactive=False
                 )
 
-            metrics_md = gr.Markdown("### Click Demo Auto-Run")
+            metrics_md = gr.Markdown("### 1. Select Authority Level & Mission")
             with gr.Row():
                 with gr.Column():
-                    run_btn = gr.Button("🚀 Demo Auto-Run (100 Qtrs)", variant="primary", size="lg")
+                    task_select = gr.Dropdown(
+                        choices=["easy_revenue_target", "medium_budget_balance", "hard_strategic_growth"],
+                        value="easy_revenue_target",
+                        label="Select Task Level (Authorization Required)"
+                    )
+                    mission_brief = gr.Markdown("---")
+                    run_btn = gr.Button("🚀 Demo Auto-Run", variant="primary", size="lg")
                     ff_mode = gr.Checkbox(label="⚡ Fast-Forward Mode", value=False)
                 with gr.Column():
                     reset_btn = gr.Button("🔄 Reset Session", size="lg")
                     export_btn = gr.Button("📤 Export to CSV", variant="secondary")
                     csv_output = gr.File(label="Download Report")
+
+            def update_brief(task):
+                briefs = {
+                    "easy_revenue_target": "**Goal**: Increase revenue by 10% within 1 year (4 Quarters).\n**Success**: Efficient pricing and marketing scaling.",
+                    "medium_budget_balance": "**Goal**: Scale to 25+ staff with stable departmental budgets.\n**Success**: Balanced departmental share >10%.",
+                    "hard_strategic_growth": "**Goal**: Maximize valuation ($500k+) through long-term R&D.\n**Success**: High innovation and brand metrics."
+                }
+                return briefs.get(task, "")
+            
+            task_select.change(fn=update_brief, inputs=[task_select], outputs=[mission_brief])
 
         # --- TAB 2: MANUAL CEO MODE & AI MENTOR ---
         with gr.Tab("🎮 Manual CEO Mode"):
@@ -459,9 +497,15 @@ with gr.Blocks(title="Autonomous CEO AI Simulator") as demo:
                 with gr.Column(scale=1):
                     m_events = gr.Textbox(label="Event Log", lines=2)
                     m_roster = gr.Dataframe(headers=["Employee ID", "Name", "Department", "Salary", "Perform", "Morale", "Tenure Qtrs"])
+            m_report = gr.Markdown("", label="Final Mission Results")
             
             m_metrics = gr.Markdown("### Adjust and click below")
             with gr.Row():
+                m_task_select = gr.Dropdown(
+                    choices=["easy_revenue_target", "medium_budget_balance", "hard_strategic_growth"],
+                    value="easy_revenue_target",
+                    label="Active Task Context"
+                )
                 manual_btn = gr.Button("⏱️ Run Quarter", variant="primary")
                 m_reset_btn = gr.Button("🔄 Reset Session")
 
@@ -515,12 +559,12 @@ with gr.Blocks(title="Autonomous CEO AI Simulator") as demo:
             """)
 
     # --- Wire Events ---
-    def run_auto(fast):
-        env.reset()
-        yield from stream_simulation("auto", speed="fast" if fast else "normal")
+    def run_auto(task_id, fast):
+        env.reset(task_id=task_id)
+        yield from stream_simulation(task_id, "auto", speed="fast" if fast else "normal")
 
-    def run_manual(p, m, h, r, s, t, c, b):
-        yield from stream_simulation("manual", speed="normal", user_p=p, user_m=m, user_h=h, user_r=r, user_s=s, user_t=t, user_c=c, user_b=b)
+    def run_manual(task_id, p, m, h, r, s, t, c, b):
+        yield from stream_simulation(task_id, "manual", speed="normal", user_p=p, user_m=m, user_h=h, user_r=r, user_s=s, user_t=t, user_c=c, user_b=b)
 
     def get_mentor_advice():
         agent = CorporateAgent()
@@ -541,24 +585,24 @@ with gr.Blocks(title="Autonomous CEO AI Simulator") as demo:
     def refresh_leaderboard():
         return leaderboard_data
 
-    outputs_auto = [plot_3d, reward_plot, comp_plot, val_plot, metrics_md, thought_box, actions_box, event_box, roster_table, ticker]
-    # Order must match stream_simulation yield: plot_3d, reward_fig, comp_fig, val_fig, metrics, thought, actions_text, events_text, roster_data, headline_html
-    outputs_manual = [m_plot3d, m_reward, m_comp, m_val, m_metrics, m_thought, m_actions, m_events, m_roster, ticker]
+    outputs_auto = [plot_3d, reward_plot, comp_plot, val_plot, metrics_md, thought_box, actions_box, event_box, roster_table, ticker, mission_report]
+    # Order must match stream_simulation yield: ..., headline_html, report_md
+    outputs_manual = [m_plot3d, m_reward, m_comp, m_val, m_metrics, m_thought, m_actions, m_events, m_roster, ticker, m_report]
 
-    reset_btn.click(fn=reset_environment, outputs=outputs_auto)
-    m_reset_btn.click(fn=reset_environment, outputs=outputs_manual)
+    reset_btn.click(fn=reset_environment, inputs=[task_select], outputs=outputs_auto)
+    m_reset_btn.click(fn=reset_environment, inputs=[m_task_select], outputs=outputs_manual)
     
-    run_btn.click(fn=run_auto, inputs=[ff_mode], outputs=outputs_auto)
-    manual_btn.click(fn=run_manual, inputs=[mp, mm, mh, mr, ms, mt, mc, mb], outputs=outputs_manual)
+    run_btn.click(fn=run_auto, inputs=[task_select, ff_mode], outputs=outputs_auto)
+    manual_btn.click(fn=run_manual, inputs=[m_task_select, mp, mm, mh, mr, ms, mt, mc, mb], outputs=outputs_manual)
     mentor_btn.click(fn=get_mentor_advice, outputs=[mentor_box])
     export_btn.click(fn=do_export, outputs=[csv_output])
     clash_btn.click(fn=run_clash, inputs=[c_p, c_m, c_h, mr, ms, mt, mc, mb], outputs=[clash_plot, clash_msg])
     refresh_lb.click(fn=refresh_leaderboard, outputs=[leaderboard_ui])
 
 
-# Mount Gradio app to FastAPI server
-# This allows both OpenEnv API endpoints (/step, /reset) and the Gradio UI (/ or /ui) to run together.
-app = gr.mount_gradio_app(app, demo, path="/")
+# Mount Gradio app to FastAPI server with Authentication
+# Credentials: admin / ceo2026
+app = gr.mount_gradio_app(app, demo, path="/", auth=("admin", "ceo2026"))
 
 def main():
     uvicorn.run(app, host="0.0.0.0", port=7860)
