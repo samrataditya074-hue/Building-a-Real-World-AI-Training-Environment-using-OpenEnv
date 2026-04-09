@@ -192,9 +192,7 @@ reward:
     TERMINAL_PENALTY: -50.0
 
 # ─── Tasks ───────────────────────────────────────────────────────────────────
-# FIX: Task IDs changed to "easy", "medium", "hard" to match
-# baseline_inference.py TASK_CONFIG and the OpenEnv evaluator expectations.
-# Score ranges updated to (0.01, 0.99) to reflect strict boundary clamping.
+# FIX: Score ranges updated to (0.01, 0.99) to reflect strict boundary clamping.
 tasks:
   - id: easy
     difficulty: easy
