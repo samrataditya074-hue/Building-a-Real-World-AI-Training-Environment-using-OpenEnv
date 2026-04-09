@@ -38,4 +38,5 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
 # ── Default command: Start the Gradio + OpenEnv FastAPI dashboard ─────────────
 # Alternative — run baseline only:
 #   docker run -e OPENAI_API_KEY=... ceo-sim python baseline_inference.py --seed 42
+ENV ENABLE_WEB_INTERFACE=false
 CMD ["python", "-m", "uvicorn", "server.app:app", "--host", "0.0.0.0", "--port", "7860"]

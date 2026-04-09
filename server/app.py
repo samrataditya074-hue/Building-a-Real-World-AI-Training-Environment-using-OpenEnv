@@ -602,9 +602,7 @@ with gr.Blocks(title="Autonomous CEO AI Simulator") as demo:
     refresh_lb.click(fn=refresh_leaderboard, outputs=[leaderboard_ui])
 
 
-# Mount Gradio app to FastAPI server at /web to override default playground
-app = gr.mount_gradio_app(app, demo, path="/web")
-# Also mount at root for direct access if redirect is disabled
+# Mount Gradio app to FastAPI server without Authentication
 app = gr.mount_gradio_app(app, demo, path="/")
 
 def main():
