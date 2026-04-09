@@ -9,15 +9,15 @@ from graders import GRADERS
 
 # ──────────────────────────────────────────────────────────────────────────────
 # MANDATORY CONFIGURATION (Scaler Hackathon)
-# ─────────────────────────────────────────────────────────────────────────────
+# ──────────────────────────────────────────────────────────────────────────────
 API_KEY = os.getenv("HF_TOKEN") or os.getenv("API_KEY")
 API_BASE_URL = os.getenv("API_BASE_URL") or "https://router.huggingface.co/v1"
 MODEL_NAME = os.getenv("MODEL_NAME") or "Qwen/Qwen2.5-72B-Instruct"
 
 # Benchmark and Task metadata
 BENCHMARK = "Autonomous CEO Simulator"
-# FIX: Default task changed to "medium" to match standardized registry
-TASK_NAME = os.getenv("TASK_ID") or "medium"
+# Default task matches the "Medium" (Valuation) task mandated by hackathon sample context
+TASK_NAME = os.getenv("TASK_ID") or "allocate_budget"
 MAX_STEPS = 8
 TEMPERATURE = 0.7
 MAX_TOKENS = 150
@@ -25,29 +25,29 @@ SUCCESS_SCORE_THRESHOLD = 0.1  # normalized score in [0, 1]
 
 # ──────────────────────────────────────────────────────────────────────────────
 # Task Configuration Mapping
-# FIX: Synchronized with standardized easy/medium/hard task IDs.
-# Old tasks (review_annual_report, etc.) are removed as they are no longer in GRADERS.
 # ──────────────────────────────────────────────────────────────────────────────
 TASK_CONFIG = {
-    "easy": {"max_steps": 4, "grader": GRADERS["easy"]},
-    "medium": {"max_steps": 50, "grader": GRADERS["medium"]},
-    "hard": {"max_steps": 50, "grader": GRADERS["hard"]},
+    "review_annual_report": {"max_steps": 4, "grader": GRADERS["review_annual_report"]},
+    "allocate_budget":      {"max_steps": 50, "grader": GRADERS["allocate_budget"]},
+    "negotiate_merger":    {"max_steps": 50, "grader": GRADERS["negotiate_merger"]},
 }
 
 # Fallback if unknown task provided
 if TASK_NAME not in TASK_CONFIG:
-    TASK_NAME = "medium"
+    TASK_NAME = "allocate_budget"
 
 MAX_STEPS = TASK_CONFIG[TASK_NAME]["max_steps"]
 GRADER_FN = TASK_CONFIG[TASK_NAME]["grader"]
 
 # ──────────────────────────────────────────────────────────────────────────────
-# STDOUT LOGGING HELPERS (Strictly following Hackathon Spec)
+# STDOUT LOGGING HELPERS (Strictly following Mandatory Hackathon Spec)
 # ──────────────────────────────────────────────────────────────────────────────
 def log_start(task: str, env: str, model: str) -> None:
+    # [START] task=<task_name> env=<benchmark> model=<model_name>
     print(f"[START] task={task} env={env} model={model}", flush=True)
 
 def log_step(step: int, action: str, reward: float, done: bool, error: Optional[str]) -> None:
+    # [STEP] step=<n> action=<action_str> reward=<0.00> done=<true|false> error=<msg|null>
     error_val = error if error else "null"
     done_val = str(done).lower()
     print(
@@ -56,8 +56,9 @@ def log_step(step: int, action: str, reward: float, done: bool, error: Optional[
     )
 
 def log_end(success: bool, steps: int, score: float, rewards: List[float]) -> None:
+    # [END] success=<true|false> steps=<n> score=<score> rewards=<r1,r2,...,rn>
     rewards_str = ",".join(f"{r:.2f}" for r in rewards)
-    print(f"[END] success={str(success).lower()} steps={steps} score={score:.3f} rewards={rewards_str}", flush=True)
+    print(f"[END] success={str(success).lower()} steps={steps} score={score:.2f} rewards={rewards_str}", flush=True)
 
 # ──────────────────────────────────────────────────────────────────────────────
 # MODEL INTERACTION
@@ -115,10 +116,11 @@ def main():
     log_start(task=TASK_NAME, env=BENCHMARK, model=MODEL_NAME)
 
     try:
+        # Reset with the specific task_id to ensure environment state is initialized correctly
         obs = env.reset(seed=42, task_id=TASK_NAME)
         
         for step in range(1, MAX_STEPS + 1):
-            # Get observation in readable format for LLM
+            # Formulate observation for LLM
             obs_array = obs.to_array()
             obs_labels = [
                 "cash_norm", "revenue_norm", "customer_satisfaction_norm",
@@ -132,8 +134,8 @@ def main():
             
             action = get_model_action(client, obs_dict)
             
-            # Record action description for logging
-            action_desc = f"Pricing:{action.price_adjustment:.1f},Hire:{action.hire_fire:.1f},R&D:{action.rd_investment:.1f}"
+            # Record action string for logging
+            action_desc = f"P:{action.price_adjustment:.1f},M:{action.marketing_push:.1f},H:{action.hire_fire:.1f}"
             
             result = env.step(action)
             obs = result
@@ -144,21 +146,23 @@ def main():
             rewards.append(reward)
             steps_taken = step
             
+            # [STEP] log
             log_step(step=step, action=action_desc, reward=reward, done=done, error=None)
 
             if done:
                 break
 
         # Calculate score using the task's specific grader
-        history = env.state_obj.metrics_history
+        history = env.typed_state().metrics_history
         score = GRADER_FN(history, seed=42)
         score = min(max(score, 0.0), 1.0)  # clamp to [0, 1]
         success = score >= SUCCESS_SCORE_THRESHOLD
 
     except Exception as e:
-        # Final log must happen even on failure
+        # Critical: [END] log must be emitted even on exception
         pass
     finally:
+        # [END] log
         log_end(success=success, steps=steps_taken, score=score, rewards=rewards)
 
 if __name__ == "__main__":

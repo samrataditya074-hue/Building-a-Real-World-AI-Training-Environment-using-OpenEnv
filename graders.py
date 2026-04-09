@@ -267,17 +267,20 @@ class CEORubric(Rubric):
 
 # ──────────────────────────────────────────────────────────────────────────────
 # Registry
-# FIX: Keys changed from "survive_easy"/"grow_val_medium"/"undercut_hard"
-# to "easy"/"medium"/"hard" to match baseline_inference.py TASK_CONFIG
-# and the OpenEnv evaluator expectations.
-# Also added the old keys as aliases for backward compatibility.
+# MANDATORY TASK IDs for Scaler Evaluation
 # ──────────────────────────────────────────────────────────────────────────────
 GRADERS: Dict[str, Any] = {
-    # Primary keys (match baseline_inference.py and evaluator)
+    # Mandatory Hackathon Keys (match openenv.yaml)
+    "review_annual_report": grade_easy,
+    "allocate_budget": grade_medium,
+    "negotiate_merger": grade_hard,
+
+    # Standarised Aliases (keep for internal baseline scripts)
     "easy": grade_easy,
     "medium": grade_medium,
     "hard": grade_hard,
-    # Backward-compatible aliases (match old openenv.yaml task IDs)
+
+    # Backward-compatible aliases
     "survive_easy": grade_easy,
     "grow_val_medium": grade_medium,
     "undercut_hard": grade_hard,
