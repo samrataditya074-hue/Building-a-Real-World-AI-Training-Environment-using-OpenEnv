@@ -16,7 +16,7 @@ Expected output (heuristic policy, seed=42):
     {
       "seed": 42,
       "model": "heuristic",
-      "scores": {"easy": 1.0, "medium": 0.71, "hard": 0.52},
+      "scores": {"easy": 0.99, "medium": 0.71, "hard": 0.52},
       "quarters_run": {"easy": 4, "medium": 50, "hard": 50}
     }
 """

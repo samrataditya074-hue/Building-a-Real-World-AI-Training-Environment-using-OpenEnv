@@ -100,7 +100,8 @@ class CEOEnvironment(Environment[Action, Observation, State]):
         self.neg_reward: float = 0.0          # Negative reward component this step
         
         # OpenEnv Rubric - provides formal grading
-        self.task_id = "grow_val_medium"
+        # FIX: task_id changed from "grow_val_medium" to "medium" to match GRADERS registry
+        self.task_id = "medium"
         self.rubric = CEORubric(self.task_id)
         self.action_labels: List[str] = []    # Human-readable action descriptions
 
