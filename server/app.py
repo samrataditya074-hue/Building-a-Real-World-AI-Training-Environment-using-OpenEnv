@@ -32,7 +32,7 @@ except ImportError:
 
 # Create the OpenEnv FastAPI Server instance
 env = CEOEnvironment()
-app = create_app(CEOEnvironment, Action, Observation, State)
+app = create_app(CEOEnvironment, Action, Observation, env_name="Autonomous CEO Simulator")
 
 # ========== GLOBAL DATA & HELPERS ==========
 leaderboard_data = []
